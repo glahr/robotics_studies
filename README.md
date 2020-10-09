@@ -5,8 +5,9 @@ Repo for initial studies in robotics kinematics and dynamics control with Mujoco
 
 1) Activate and deactivate Mujoco viewer
 2) Access Mujoco data info during simulation
-3) Calculate forward kinematics and compare with Mujoco
-4) 
+3) Calculate forward kinematics and compare with Mujoco's ```xpos```
+4) Calculate the Geometric Jacobian and compare with Mujoco's ```.jacp && .jacr```
+5) 
 
 
 ## Troubleshooting
