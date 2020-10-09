@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from mujoco_py import load_model_from_xml, MjSim, MjViewer,load_model_from_path
 
-
 model = load_model_from_path("./assets/two_link.xml")
 
 sim = MjSim(model)
