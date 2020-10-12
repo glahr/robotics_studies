@@ -7,7 +7,9 @@ Repo for initial studies in robotics kinematics and dynamics control with Mujoco
 2) Access Mujoco data info during simulation
 3) Calculate forward kinematics and compare with Mujoco's ```xpos```
 4) Calculate the Geometric Jacobian and compare with Mujoco's ```.jacp && .jacr```
-5) 
+5) Obtain cartesian velocity through xvel and calculated Jacobian
+6) Create a joint position PD controller (simulate at Matlab to find best params)
+7) 
 
 
 ## Troubleshooting
