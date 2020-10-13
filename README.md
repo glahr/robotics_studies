@@ -9,7 +9,8 @@ Repo for initial studies in robotics kinematics and dynamics control with Mujoco
 4) Calculate the Geometric Jacobian and compare with Mujoco's ```.jacp && .jacr```
 5) Obtain cartesian velocity through xvel and calculated Jacobian
 6) Create a joint position PD controller (simulate at Matlab to find best params)
-7) 
+7) Apply inverse kinmetics and move in Cartesian coordinates
+8) 
 
 
 ## Troubleshooting
