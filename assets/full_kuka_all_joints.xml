@@ -27,17 +27,11 @@
     <light pos="0 0 1000" castshadow="false"/>
     <geom class="collision" type="plane" size="10 10 1" rgba=".8 .8 .8 1"/>
     <body name="kuka_table" pos="0 0 1">
-      <geom class="collision" type="box" size=".5 .5 .5" pos="0 0 -.5" />
+      <geom class="collision" type="box" size=".125 .125 .5" pos=".18 0 -.5" />
       <body name="kuka_base" pos=".2 0 0">
-        <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
+          <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
       </body>
     </body>
-    <!-- <body name="experiment_table" pos="1.2 0 1">
-      <geom type="box" size=".5 .5 .5" pos="0 0 -.5"/>
-      <body pos="-.4 0 0">
-        <include file="hole/polyhedral_hole_inner=0-0068_outer=0-05_height=0-05_num_facets=16.xml"/>
-      </body>
-    </body> -->
   </worldbody>
 
   <actuator>
@@ -45,6 +39,6 @@
   </actuator>
 
   <sensor>
-    <include file="peg/peg_sensors.xml" />
+    <include file="peg/peg_sensors.xml"/>
   </sensor>
 </mujoco>
