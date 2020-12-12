@@ -7,35 +7,64 @@ import numpy as np
 
 
 def trajectory_gen_joints(qd, tf, n, ti=0, dt=0.002, q_act=np.zeros((7,)), traj=None):
+    """
+    Joint trajectory generation with different methods.
+    :param qd: joint space desired final point
+    :param tf: total time of travel
+    :param n: number of time steps
+    :param ti: initial time
+    :param dt: time step
+    :param q_act: current joint position
+    :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
+    :return:
+    """
+
+    # Definition of step vectors.
     q_ref = [qd for _ in range(n_timesteps)]
-    qvel_ref = [np.array([0, 0, 0, 0, 0, 0, 0]) for _ in range(n_timesteps)]
+    qvel_ref = [np.zeros((7,)) for _ in range(n_timesteps)]
+    qacc_ref = [np.zeros((7,)) for _ in range(n_timesteps)]
     # q_d = q_ref[-1]
     time = np.linspace(ti, tf, int((tf - ti) / dt))
 
-    # T = tf-ti
-    # qd_ti = q_act
-    # qveld_ti = np.zeros((7,1))
-    # # qd_tf = qd[-1]
-    # qveld_tf = np.zeros((7,1))
-    # # q_ = [np.array([qd_ti[i], qveld_ti[i], qd_tf, qveld_tf[i]]) for i, qd_tf in enumerate(qd)]
-    # 
-    # A = np.array([[1, 0, 0, 0],
-    #               [0, 1, 0, 0],
-    #               [1, T, T**2, T**3],
-    #               [0, 1, 2*T,  3*T**2]])
-    # 
-    # for i, qd_ti_i, qveld_ti_i, qd_tf_i, qveld_tf_i in zip()
-    # 
-    # a, b, c, d = [np.dot(np.linalg.inv(A), q) for q in q_]
-    # 
-    # q_ref = np.array([a+b*(t-ti)+c*(t-ti)**2+d*(t-ti)**3 for t in time])
-
-    if traj == 'spline':
+    if traj == 'spline3':
+        T = tf-ti
+        q0 = q_act
+        qvel0 = np.zeros((7,))
+        qf = qd
+        qvelf = np.zeros((7,))
+        Q = np.array([q0, qvel0, qf, qvelf])
+        A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
+                                        [0, 1, 0, 0],
+                                        [1, T, T**2, T**3],
+                                        [0, 1, 2*T,  3*T**2]]))
+        coeffs = np.dot(A_inv, Q)
         for i, t in enumerate(time):
-            q_ref[i] = 2 * (q_act - qd) / tf ** 3 * t ** 3 - 3 * (q_act - qd) / tf ** 2 * t ** 2 + q_act
-            qvel_ref[i] = 6 * (q_act - qd) / tf ** 3 * t ** 2 - 6 * (q_act - qd) / tf ** 2 * t
-            # qacc_ref[i] = 12 * (q0 - q_d) / tf ** 3 * t - 6 * (q0 - q_d) / tf ** 2
-    return q_ref, qvel_ref
+            q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti)**2, (t - ti)**3]), coeffs)
+            qvel_ref[i] = np.dot(np.array([0, 1, 2*(t - ti), 3*(t - ti) ** 2]), coeffs)
+            qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
+
+    if traj == 'spline5':
+        T = tf-ti
+        q0 = q_act
+        qvel0 = np.zeros((7,))
+        qacc0 = np.zeros((7,))
+        qf = qd
+        qvelf = np.zeros((7,))
+        qaccf = np.zeros((7,))
+        Q = np.array([q0, qvel0, qacc0, qf, qvelf, qaccf])
+        A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
+                                        [0, 1, 0, 0, 0, 0],
+                                        [0, 0, 2, 0, 0, 0],
+                                        [1, T, T**2, T**3, T**4, T**5],
+                                        [0, 1, 2*T,  3*T**2, 4*T**3, 5*T**4],
+                                        [0, 0, 2,  6*T, 12*T**2, 20*T**3]]))
+        coeffs = np.dot(A_inv, Q)
+        for i, t in enumerate(time):
+            q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti)**2, (t - ti)**3, (t - ti)**4, (t - ti)**5]), coeffs)
+            qvel_ref[i] = np.dot(np.array([0, 1, 2*(t - ti), 3*(t - ti) ** 2, 4*(t - ti)**3, 5*(t - ti)**4]), coeffs)
+            qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12*(t - ti)**2, 20*(t - ti)**3]), coeffs)
+
+    return q_ref, qvel_ref, qacc_ref
 
 
 def ctrl_independent_joints(error_q, error_v, error_q_int_ant):
@@ -115,7 +144,7 @@ if __name__ == '__main__':
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     # qd = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
-    q_ref, qvel_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='spline')
+    q_ref, qvel_ref, qacc_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='spline5')
     q_log = np.zeros((n_timesteps, 7))
     time_log = np.zeros((n_timesteps, 1))
     H = np.zeros(sim.model.nv * sim.model.nv)
