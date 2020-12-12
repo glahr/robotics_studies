@@ -6,17 +6,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def trajectory_gen_joints(qd, tf, n, ti=0, dt=0.002, traj=None):
+def trajectory_gen_joints(qd, tf, n, ti=0, dt=0.002, q_act=np.zeros((7,)), traj=None):
     q_ref = [qd for _ in range(n_timesteps)]
     qvel_ref = [np.array([0, 0, 0, 0, 0, 0, 0]) for _ in range(n_timesteps)]
+    # q_d = q_ref[-1]
+    time = np.linspace(ti, tf, int((tf - ti) / dt))
+
+    # T = tf-ti
+    # qd_ti = q_act
+    # qveld_ti = np.zeros((7,1))
+    # # qd_tf = qd[-1]
+    # qveld_tf = np.zeros((7,1))
+    # # q_ = [np.array([qd_ti[i], qveld_ti[i], qd_tf, qveld_tf[i]]) for i, qd_tf in enumerate(qd)]
+    # 
+    # A = np.array([[1, 0, 0, 0],
+    #               [0, 1, 0, 0],
+    #               [1, T, T**2, T**3],
+    #               [0, 1, 2*T,  3*T**2]])
+    # 
+    # for i, qd_ti_i, qveld_ti_i, qd_tf_i, qveld_tf_i in zip()
+    # 
+    # a, b, c, d = [np.dot(np.linalg.inv(A), q) for q in q_]
+    # 
+    # q_ref = np.array([a+b*(t-ti)+c*(t-ti)**2+d*(t-ti)**3 for t in time])
+
     if traj == 'spline':
-        q_d = q_ref[-1]
-        time = np.linspace(ti, tf, int((tf-ti)/dt))
-        q0 = np.zeros(7)
-        # q_ref = np.zeros((n, 7))
         for i, t in enumerate(time):
-            q_ref[i] = 2*(q0-q_d)/tf**3 * t**3 - 3*(q0-q_d)/tf**2 * t**2 + q0
-            # qvel_ref[i] = 6*(q0-q_d)/tf**3 * t**2 - 6*(q0-q_d)/tf**2 * t
+            q_ref[i] = 2 * (q_act - qd) / tf ** 3 * t ** 3 - 3 * (q_act - qd) / tf ** 2 * t ** 2 + q_act
+            qvel_ref[i] = 6 * (q_act - qd) / tf ** 3 * t ** 2 - 6 * (q_act - qd) / tf ** 2 * t
+            # qacc_ref[i] = 12 * (q0 - q_d) / tf ** 3 * t - 6 * (q0 - q_d) / tf ** 2
     return q_ref, qvel_ref
 
 
@@ -65,7 +83,7 @@ def get_pd_matrices(kp, use_ki, use_kd, lambda_H=0):
     if use_ki:
         Ki = np.eye(7)
         for i in range(7):
-            Ki[i, i] = 0.9*Kp[i,i]*Kd[i,i]/lambda_H**2
+            Ki[i, i] = Kp[i,i]*Kd[i,i]/lambda_H**2
     else:
         Ki = np.zeros((7,7))
     return Kp, Kd, Ki
@@ -89,7 +107,7 @@ if __name__ == '__main__':
         kp = 1.5
         use_kd = True
         use_ki = False
-        lambda_H = 11/sim.model.nv
+        lambda_H = 6.2/sim.model.nv
         error_q_int_ant = 0
         Kp, Kd, Ki = get_pd_matrices(kp=kp, use_ki=use_ki, use_kd=use_kd, lambda_H=lambda_H)
     k = 1
@@ -97,7 +115,7 @@ if __name__ == '__main__':
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     # qd = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
-    q_ref, qvel_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='step')
+    q_ref, qvel_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='spline')
     q_log = np.zeros((n_timesteps, 7))
     time_log = np.zeros((n_timesteps, 1))
     H = np.zeros(sim.model.nv * sim.model.nv)
@@ -113,16 +131,16 @@ if __name__ == '__main__':
 
     sim.forward()
 
-    max_trace = 0
+    max_diag_element = 0
     error_q_ant = 0
     erro_q = q_ref[0] - sim.data.qpos
     qd = np.array([0, 0, 0, 0, 0, 0, 0])
 
     while True:
 
-        if (np.absolute(erro_q) < eps).all():
-            qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
-            # print("tolerancia " + str(sim.data.time))
+        # if (np.absolute(erro_q) < eps).all():
+        #     qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
+        # print("tolerancia " + str(sim.data.time))
 
         qpos = sim.data.qpos
         qvel = sim.data.qvel
@@ -132,9 +150,9 @@ if __name__ == '__main__':
         # inertia matrix H
         mujoco_py.functions.mj_fullM(sim.model, H, sim.data.qM)
         H_ = H.reshape(sim.model.nv, sim.model.nv)
-        current_trace = np.trace(H_)
-        if current_trace > max_trace:
-            max_trace = current_trace
+        element = max(np.diag(H_))
+        if element > max_diag_element:
+            max_diag_element = element
         # internal forces: Coriolis + gravitational
         C = sim.data.qfrc_bias
 
@@ -157,4 +175,4 @@ if __name__ == '__main__':
     plt.plot(time_log, [q_r for q_r in q_ref+qd], 'k--')
     plt.legend(['q'+str(i+1) for i in range(7)])
     plt.show()
-    print("biggest trace = ", max_trace)
+    print("biggest element = ", max_diag_element)
