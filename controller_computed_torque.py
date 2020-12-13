@@ -6,63 +6,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def trajectory_gen_joints(qd, tf, n, ti=0, dt=0.002, q_act=np.zeros((7,)), traj=None):
-    """
-    Joint trajectory generation with different methods.
-    :param qd: joint space desired final point
-    :param tf: total time of travel
-    :param n: number of time steps
-    :param ti: initial time
-    :param dt: time step
-    :param q_act: current joint position
-    :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
-    :return:
-    """
-
-    # Definition of step vectors.
+def trajectory_gen_joints(qd, tf, n, ti=0, dt=0.002, traj=None):
     q_ref = [qd for _ in range(n_timesteps)]
-    qvel_ref = [np.zeros((7,)) for _ in range(n_timesteps)]
-    qacc_ref = [np.zeros((7,)) for _ in range(n_timesteps)]
-    # q_d = q_ref[-1]
+    qvel_ref = [np.array([0, 0, 0, 0, 0, 0, 0]) for _ in range(n_timesteps)]
+    qacc_ref = [np.array([0, 0, 0, 0, 0, 0, 0]) for _ in range(n_timesteps)]
+    q_d = q_ref[-1]
     time = np.linspace(ti, tf, int((tf - ti) / dt))
-
+    q0 = np.zeros(7)
     if traj == 'spline3':
-        T = tf-ti
-        q0 = q_act
-        qvel0 = np.zeros((7,))
-        qf = qd
-        qvelf = np.zeros((7,))
-        Q = np.array([q0, qvel0, qf, qvelf])
-        A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
-                                        [0, 1, 0, 0],
-                                        [1, T, T**2, T**3],
-                                        [0, 1, 2*T,  3*T**2]]))
-        coeffs = np.dot(A_inv, Q)
         for i, t in enumerate(time):
-            q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti)**2, (t - ti)**3]), coeffs)
-            qvel_ref[i] = np.dot(np.array([0, 1, 2*(t - ti), 3*(t - ti) ** 2]), coeffs)
-            qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
+            q_ref[i] = 2*(q0-q_d)/tf**3 * t**3 - 3*(q0-q_d)/tf**2 * t**2 + q0
+            qvel_ref[i] = 6*(q0-q_d)/tf**3 * t**2 - 6*(q0-q_d)/tf**2 * t
+            qacc_ref[i] = 12*(q0-q_d)/tf**3 * t - 6*(q0-q_d)/tf**2
 
-    if traj == 'spline5':
-        T = tf-ti
-        q0 = q_act
-        qvel0 = np.zeros((7,))
-        qacc0 = np.zeros((7,))
-        qf = qd
-        qvelf = np.zeros((7,))
-        qaccf = np.zeros((7,))
-        Q = np.array([q0, qvel0, qacc0, qf, qvelf, qaccf])
-        A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
-                                        [0, 1, 0, 0, 0, 0],
-                                        [0, 0, 2, 0, 0, 0],
-                                        [1, T, T**2, T**3, T**4, T**5],
-                                        [0, 1, 2*T,  3*T**2, 4*T**3, 5*T**4],
-                                        [0, 0, 2,  6*T, 12*T**2, 20*T**3]]))
-        coeffs = np.dot(A_inv, Q)
-        for i, t in enumerate(time):
-            q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti)**2, (t - ti)**3, (t - ti)**4, (t - ti)**5]), coeffs)
-            qvel_ref[i] = np.dot(np.array([0, 1, 2*(t - ti), 3*(t - ti) ** 2, 4*(t - ti)**3, 5*(t - ti)**4]), coeffs)
-            qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12*(t - ti)**2, 20*(t - ti)**3]), coeffs)
+    # if traj == 'spline5':
+    #     for i, t in enumerate(time):
+    #         q_ref[i] = 2*(q0-q_d)/tf**3 * t**3 - 3*(q0-q_d)/tf**2 * t**2 + q0
+    #         qvel_ref[i] = 6*(q0-q_d)/tf**3 * t**2 - 6*(q0-q_d)/tf**2 * t
+    #         qacc_ref[i] = 12*(q0-q_d)/tf**3 * t - 6*(q0-q_d)/tf**2
 
     return q_ref, qvel_ref, qacc_ref
 
@@ -77,7 +38,7 @@ def ctrl_independent_joints(error_q, error_v, error_q_int_ant):
 def get_ctrl_action(controller, error_q, error_v, error_q_int_ant=0):
     if controller == 'independent_joints':
         u = ctrl_independent_joints(error_q, error_v, error_q_int_ant)
-    return u
+    return u, error_q_int_ant
 
 
 def kuka_subtree_mass():
@@ -98,7 +59,7 @@ def get_pd_matrices(kp, use_ki, use_kd, lambda_H=0):
             if i == 6:
                 Kd[i, i] = Kp[i, i]**(0.005/kp)
             else:
-                Kd[i, i] = Kp[i, i]**0.5
+                Kd[i, i] = 2*Kp[i, i]**0.5
         # for i in range(7):
         #     if i == 6:
         #         Kd[i, i] = Kp[i, i] ** 0.005 * (7 - i)
@@ -107,46 +68,33 @@ def get_pd_matrices(kp, use_ki, use_kd, lambda_H=0):
         #     else:
         #         Kd[i, i] = Kp[i, i] ** 0.25 * (10 - i)
     else:
-        Kd = np.zeros((7, 7))
+        Kd = np.zeros((7,7))
 
     if use_ki:
         Ki = np.eye(7)
         for i in range(7):
-            Ki[i, i] = Kp[i, i]*Kd[i, i]/lambda_H**2
+            Ki[i, i] = Kp[i,i]*Kd[i,i]/lambda_H**2
     else:
         Ki = np.zeros((7,7))
     return Kp, Kd, Ki
 
 
-def tau_g(sim, name_bodies, mass_links):
-    Jp_shape = (3, sim.model.nv)
-    comp = np.zeros((sim.model.nv,))
-    for body, mass in zip(name_bodies, mass_links):
-        Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
-        comp = comp - np.dot(Jp.transpose(), sim.model.opt.gravity*mass)
-    return comp
-
-
 if __name__ == '__main__':
 
-    simulate = True
-    use_gravity = True
-    model_name = "assets/full_kuka_all_joints"
-    if use_gravity:
-        model_name += "_gravity"
+    simulate = False
 
-    model_xml = load_model_from_path(model_name + '.xml')
+    model = load_model_from_path("assets/full_kuka_all_joints.xml")
 
-    sim = MjSim(model_xml)
+    sim = MjSim(model)
 
     if simulate:
         viewer = MjViewer(sim)
 
-    tf = 1  # spline final time
+    tf = 1
     n_timesteps = 3000
     controller_type = 'independent_joints'
     if controller_type == 'independent_joints':
-        kp = 7
+        kp = 1.5
         use_kd = True
         use_ki = False
         lambda_H = 6.2/sim.model.nv
@@ -157,7 +105,7 @@ if __name__ == '__main__':
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     # qd = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
-    q_ref, qvel_ref, qacc_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='spline5')
+    q_ref, qvel_ref, qacc_ref = trajectory_gen_joints(qd, tf, n_timesteps, traj='spline')
     q_log = np.zeros((n_timesteps, 7))
     time_log = np.zeros((n_timesteps, 1))
     H = np.zeros(sim.model.nv * sim.model.nv)
@@ -180,9 +128,9 @@ if __name__ == '__main__':
 
     while True:
 
-        # if (np.absolute(erro_q) < eps).all():
-        #     qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
-        # print("tolerancia " + str(sim.data.time))
+        if (np.absolute(erro_q) < eps).all():
+            qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
+            # print("tolerancia " + str(sim.data.time))
 
         qpos = sim.data.qpos
         qvel = sim.data.qvel
@@ -198,11 +146,7 @@ if __name__ == '__main__':
         # internal forces: Coriolis + gravitational
         C = sim.data.qfrc_bias
 
-        u = get_ctrl_action(controller_type, erro_q, erro_v, error_q_int_ant=error_q_int_ant)
-
-        if use_gravity:
-            u += tau_g(sim, name_body, mass_links)
-        # u = tau_g(sim.model, sim.data, name_body, mass_links)
+        u = np.dot(H_, )
 
         sim.data.ctrl[:] = u
 
