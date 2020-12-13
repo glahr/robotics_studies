@@ -77,7 +77,7 @@ def ctrl_independent_joints(error_q, error_v, error_q_int_ant):
 def get_ctrl_action(controller, error_q, error_v, error_q_int_ant=0):
     if controller == 'independent_joints':
         u = ctrl_independent_joints(error_q, error_v, error_q_int_ant)
-    return u, error_q_int_ant
+    return u
 
 
 def kuka_subtree_mass():
@@ -98,7 +98,7 @@ def get_pd_matrices(kp, use_ki, use_kd, lambda_H=0):
             if i == 6:
                 Kd[i, i] = Kp[i, i]**(0.005/kp)
             else:
-                Kd[i, i] = 2*Kp[i, i]**0.5
+                Kd[i, i] = Kp[i, i]**0.5
         # for i in range(7):
         #     if i == 6:
         #         Kd[i, i] = Kp[i, i] ** 0.005 * (7 - i)
@@ -107,33 +107,46 @@ def get_pd_matrices(kp, use_ki, use_kd, lambda_H=0):
         #     else:
         #         Kd[i, i] = Kp[i, i] ** 0.25 * (10 - i)
     else:
-        Kd = np.zeros((7,7))
+        Kd = np.zeros((7, 7))
 
     if use_ki:
         Ki = np.eye(7)
         for i in range(7):
-            Ki[i, i] = Kp[i,i]*Kd[i,i]/lambda_H**2
+            Ki[i, i] = Kp[i, i]*Kd[i, i]/lambda_H**2
     else:
         Ki = np.zeros((7,7))
     return Kp, Kd, Ki
 
 
+def tau_g(sim, name_bodies, mass_links):
+    Jp_shape = (3, sim.model.nv)
+    comp = np.zeros((sim.model.nv,))
+    for body, mass in zip(name_bodies, mass_links):
+        Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
+        comp = comp - np.dot(Jp.transpose(), sim.model.opt.gravity*mass)
+    return comp
+
+
 if __name__ == '__main__':
 
     simulate = True
+    use_gravity = True
+    model_name = "assets/full_kuka_all_joints"
+    if use_gravity:
+        model_name += "_gravity"
 
-    model = load_model_from_path("assets/full_kuka_all_joints.xml")
+    model_xml = load_model_from_path(model_name + '.xml')
 
-    sim = MjSim(model)
+    sim = MjSim(model_xml)
 
     if simulate:
         viewer = MjViewer(sim)
 
-    tf = 1
+    tf = 1  # spline final time
     n_timesteps = 3000
     controller_type = 'independent_joints'
     if controller_type == 'independent_joints':
-        kp = 1.5
+        kp = 7
         use_kd = True
         use_ki = False
         lambda_H = 6.2/sim.model.nv
@@ -185,7 +198,11 @@ if __name__ == '__main__':
         # internal forces: Coriolis + gravitational
         C = sim.data.qfrc_bias
 
-        u, error_q_int_ant = get_ctrl_action(controller_type, erro_q, erro_v, error_q_int_ant)
+        u = get_ctrl_action(controller_type, erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+
+        if use_gravity:
+            u += tau_g(sim, name_body, mass_links)
+        # u = tau_g(sim.model, sim.data, name_body, mass_links)
 
         sim.data.ctrl[:] = u
 
