@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time, use_gravity, plot_2d, use_kd, use_ki):
+    def __init__(self, sim_handle, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
         self.use_gravity = use_gravity
@@ -17,27 +17,36 @@ class CtrlUtils:
 
         self.n_timesteps = int(simulation_time / self.dt)
 
-        # max_diag_element = 0
-        self.error_q_ant = 0
-        # self.erro_q = q_ref[0] - sim.data.qpos
-        self.q_log = np.zeros((self.n_timesteps, sim_handle.model.nv))
         self.time_log = np.zeros((self.n_timesteps, 1))
         self.H = np.zeros(self.sim.model.nv * self.sim.model.nv)  # inertia matrix
+        self.C = np.zeros((7,))  # Coriolis vector
         self.qd = np.zeros((self.sim.model.nv,))
 
-        self.controller_type = 'independent_joints'
+        self.controller_type = controller_type
 
         # Definition of step vectors.
-        self.q_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
-        self.qvel_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
-        self.qacc_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
-        self.error_q = 0
-        self.error_qvel = 0
-        self.error_q_int_ant = 0
-        self.error_q_ant = 0
+        if controller_type == 'independent_joints' or controller_type == 'inverse_dynamics':
+            self.q_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.qvel_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.qacc_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.q_log = np.zeros((self.n_timesteps, sim_handle.model.nv))
+            self.error_q = 0
+            self.error_qvel = 0
+            self.error_q_int_ant = 0
+            self.error_q_ant = 0
+
+        if controller_type == 'inverse_dynamics_operational_space':
+            self.x_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
+            self.xvel_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
+            self.xacc_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
+            self.x_log = np.zeros((self.n_timesteps, 3))
+            self.error_x_ant = 0
+
+
         self.Kp = None
         self.Kd = None
         self.Ki = None
+        self.J_ant = None
         self.use_kd = use_kd
         self.use_ki = use_ki
         self.lambda_H = 0
@@ -100,28 +109,145 @@ class CtrlUtils:
                     np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
                 self.qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
 
-        # return q_ref, qvel_ref, qacc_ref
+    def trajectory_gen_operational_space(self, xd, tf, ti=0, dt=0.002, x_act=np.zeros((3,)), xmat_act=np.zeros((9,9)),
+                                    traj=None):
+        """
+        Joint trajectory generation with different methods.
+        :param qd: joint space desired final point
+        :param tf: total time of travel
+        :param n: number of time steps
+        :param ti: initial time
+        :param dt: time step
+        :param q_act: current joint position
+        :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
+        :return:
+        """
+
+        self.x_ref = [xd for _ in range(self.n_timesteps)]
+
+        time = np.linspace(ti, tf, int((tf - ti) / dt))
+
+        if traj == 'spline3':
+            T = tf - ti
+            x0 = x_act
+            xvel0 = np.zeros((3,))
+            xf = xd
+            xvelf = np.zeros((3,))
+            X = np.array([x0, xvel0, xf, xvelf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
+                                            [0, 1, 0, 0],
+                                            [1, T, T ** 2, T ** 3],
+                                            [0, 1, 2 * T, 3 * T ** 2]]))
+            coeffs = np.dot(A_inv, X)
+            for i, t in enumerate(time):
+                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
+                self.xvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
+                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
+
+        if traj == 'spline5':
+            T = tf - ti
+            x0 = x_act
+            xvel0 = np.zeros((3,))
+            xacc0 = np.zeros((3,))
+            xf = xd
+            xvelf = np.zeros((3,))
+            xaccf = np.zeros((3,))
+            X = np.array([x0, xvel0, xacc0, xf, xvelf, xaccf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
+                                            [0, 1, 0, 0, 0, 0],
+                                            [0, 0, 2, 0, 0, 0],
+                                            [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
+                                            [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
+                                            [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
+            coeffs = np.dot(A_inv, X)
+            for i, t in enumerate(time):
+                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
+                                  coeffs)
+                self.xvel_ref[i] = np.dot(
+                    np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
+                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
 
     def ctrl_independent_joints(self):
         error_q_int = (self.error_q + self.error_q_ant) * self.dt / 2 + self.error_q_int_ant
         self.error_q_int_ant = error_q_int
         return np.dot(self.Kp, self.error_q) + np.dot(self.Kd, self.error_qvel) + np.dot(self.Ki, error_q_int)
 
-    def ctrl_action(self, sim):
+    def ctrl_inverse_dynamics_operational_space(self, sim, k):
+        H = self.get_inertia_matrix(sim)
+        H_inv = np.linalg.inv(H)
+        C = self.get_coriolis_vector(sim)
+
+        jacp, jacr = self.get_jacobian_site(sim)
+
+        J = np.concatenate([jacp, jacr])
+
+        if self.J_ant is None:
+            self.J_ant = np.zeros(J.shape)
+
+        J_dot = (J-self.J_ant)/self.dt
+        J_inv = np.linalg.pinv(J)
+
+        # equations from Robotics Handbook chapter 3, section 3.3
+        H_op_space = np.linalg.inv(np.dot(J, np.dot(H_inv, J.transpose())))
+        C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
+
+        v_ = self.xacc_ref[k] + np.dot(self.Kd, self.error_xvel) + np.dot(self.Kp, self.error_x)
+        r_ = np.zeros((3,))
+
+        f = np.dot(H_op_space, np.concatenate((v_,r_))) + C_op_space
+
+        tau = np.dot(J.transpose(), f)
+
+        tau_max = 50
+
+        if (np.absolute(tau) > tau_max).all():
+            for i, tau_i in enumerate(tau):
+                tau[i] = np.sign(tau_i) * tau_max
+
+        return tau
+
+    def ctrl_inverse_dynamics(self, sim, k):
+        H = self.get_inertia_matrix(sim)
+        C = self.get_coriolis_vector(sim)
+
+        v_ = self.qacc_ref[k] + np.dot(self.Kd, self.error_qvel) + np.dot(self.Kp, self.error_q)
+
+        tau = np.dot(H, v_) + C
+
+        return tau
+
+    def ctrl_action(self, sim, k):
         if self.controller_type == 'independent_joints':
             if self.Kp is None:
                 self.get_pd_matrices()
             u = self.ctrl_independent_joints()
+            if self.use_gravity:
+                u += self.tau_g(sim)
 
-        if self.use_gravity:
-            u += self.tau_g(sim)
+        if self.controller_type == 'inverse_dynamics':
+            if self.Kp is None:
+                self.get_pd_matrices()
+            u = self.ctrl_inverse_dynamics(sim, k)
+
+        if self.controller_type == 'inverse_dynamics_operational_space':
+            if self.Kp is None:
+                self.get_pd_matrices()
+            u = self.ctrl_inverse_dynamics_operational_space(sim, k)
+
+
         return u
 
-    def calculate_errors(self, sim_handle, k, qd_new=0):
-        qpos = sim_handle.data.qpos
-        qvel = sim_handle.data.qvel
-        self.error_q = self.q_ref[k] + qd_new - qpos
-        self.error_qvel = self.qvel_ref[k] - qvel
+    def calculate_errors(self, sim_handle, k, qd_new=0, xd_new=0):
+        if self.controller_type == 'inverse_dynamics_operational_space':
+            xpos = sim_handle.data.get_site_xpos(self.name_tcp)
+            xvel = sim_handle.data.get_site_xvelp(self.name_tcp)
+            self.error_x = self.x_ref[k] + xd_new - xpos
+            self.error_xvel = self.xvel_ref[k] - xvel
+        else:
+            qpos = sim_handle.data.qpos
+            qvel = sim_handle.data.qvel
+            self.error_q = self.q_ref[k] + qd_new - qpos
+            self.error_qvel = self.qvel_ref[k] - qvel
 
     def kuka_subtree_mass(self):
         body_names = ['kuka_link_{}'.format(i + 1) for i in range(7)]
@@ -129,14 +255,23 @@ class CtrlUtils:
         return self.sim.model.body_subtreemass[body_ids]
 
     def get_pd_matrices(self):
+
+        if self.controller_type == 'inverse_dynamics_operational_space':
+            n_space = 3
+        else:
+            n_space = 7
+
         subtree_mass = self.kuka_subtree_mass()
-        Kp = np.eye(7)
-        for i in range(7):
-            Kp[i, i] = self.kp * subtree_mass[i]
+        Kp = np.eye(n_space)
+        for i in range(n_space):
+            if self.controller_type == 'inverse_dynamics_operational_space':
+                Kp[i, i] = self.kp
+            else:
+                Kp[i, i] = self.kp * subtree_mass[i]
 
         if self.use_kd:
-            Kd = np.eye(7)
-            for i in range(7):
+            Kd = np.eye(n_space)
+            for i in range(n_space):
                 if i == 6:
                     Kd[i, i] = Kp[i, i] ** (0.005 / self.kp)
                 else:
@@ -149,14 +284,14 @@ class CtrlUtils:
             #     else:
             #         Kd[i, i] = Kp[i, i] ** 0.25 * (10 - i)
         else:
-            Kd = np.zeros((7, 7))
+            Kd = np.zeros((n_space, n_space))
 
         if self.use_ki:
-            Ki = np.eye(7)
-            for i in range(7):
+            Ki = np.eye(n_space)
+            for i in range(n_space):
                 Ki[i, i] = Kp[i, i] * Kd[i, i] / self.lambda_H ** 2
         else:
-            Ki = np.zeros((7, 7))
+            Ki = np.zeros((n_space, n_space))
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -170,25 +305,42 @@ class CtrlUtils:
         return comp
 
     def plots(self):
-        plt.plot(self.time_log, self.q_log)
-        plt.plot(self.time_log, [q_r for q_r in self.q_ref], 'k--')
-        plt.legend(['q' + str(i + 1) for i in range(7)])
-        plt.show()
+        if self.controller_type == 'inverse_dynamics_operational_space':
+            plt.plot(self.time_log, self.x_log)
+            plt.plot(self.time_log, [x_r for x_r in self.x_ref], 'k--')
+            plt.legend(['x' + str(i + 1) for i in range(3)])
+            plt.show()
+        else:
+            plt.plot(self.time_log, self.q_log)
+            plt.plot(self.time_log, [q_r for q_r in self.q_ref], 'k--')
+            plt.legend(['q' + str(i + 1) for i in range(7)])
+            plt.show()
 
     def step(self, sim, k):
-        if self.plot_2d:
-            self.q_log[k] = sim.data.qpos
-            self.time_log[k] = sim.data.time
-        self.error_q_ant = self.error_q
+        if self.controller_type == 'inverse_dynamics_operational_space':
+            self.error_x_ant = self.error_x
+            if self.plot_2d:
+                self.x_log[k] = sim.data.get_site_xpos(self.name_tcp)
+                self.time_log[k] = sim.data.time
+        else:
+            self.error_q_ant = self.error_q
+            if self.plot_2d:
+                self.q_log[k] = sim.data.qpos
+                self.time_log[k] = sim.data.time
         sim.step()
 
-    # def dynamic_values(self):
-    #     # inertia matrix H
-    #     mujoco_py.functions.mj_fullM(sim.model, H, sim.data.qM)
-    #     H_ = H.reshape(sim.model.nv, sim.model.nv)
-    #     element = max(np.diag(H_))
-    #     if element > max_diag_element:
-    #         max_diag_element = element
-    #     # internal forces: Coriolis + gravitational
-    #     C = np.zeros(7)
-    #     C = sim.data.qfrc_bias
+    def get_inertia_matrix(self, sim):
+        # inertia matrix H
+        mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
+        H_ = self.H.reshape(sim.model.nv, sim.model.nv)
+        return H_
+
+    def get_coriolis_vector(self, sim):
+        # internal forces: Coriolis + gravitational
+        return sim.data.qfrc_bias
+
+    def get_jacobian_site(self, sim):
+        Jp_shape = (3, sim.model.nv)
+        jacp  = sim.data.get_site_jacp(self.name_tcp).reshape(Jp_shape)
+        jacr  = sim.data.get_site_jacr(self.name_tcp).reshape(Jp_shape)
+        return jacp, jacr
