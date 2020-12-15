@@ -25,20 +25,24 @@ class CtrlUtils:
         self.controller_type = controller_type
 
         # Definition of step vectors.
-        if controller_type == 'independent_joints' or controller_type == 'inverse_dynamics':
-            self.q_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.qvel_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.qacc_ref = [np.zeros((7,)) for _ in range(self.n_timesteps)]
+        if True: # controller_type == 'independent_joints' or controller_type == 'inverse_dynamics':
+            self.q_ref = np.zeros((self.n_timesteps, sim_handle.model.nv))
+            self.qvel_ref = np.zeros((self.n_timesteps, sim_handle.model.nv)) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.qacc_ref = np.zeros((self.n_timesteps, sim_handle.model.nv)) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
             self.q_log = np.zeros((self.n_timesteps, sim_handle.model.nv))
             self.error_q = 0
             self.error_qvel = 0
             self.error_q_int_ant = 0
             self.error_q_ant = 0
 
-        if controller_type == 'inverse_dynamics_operational_space':
-            self.x_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
-            self.xvel_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
-            self.xacc_ref = [np.zeros((3,)) for _ in range(self.n_timesteps)]
+        if True: #controller_type == 'inverse_dynamics_operational_space':
+            self.x_ref = np.zeros((self.n_timesteps, 3))
+            self.xvel_ref = np.zeros((self.n_timesteps, 3))
+            self.xacc_ref = np.zeros((self.n_timesteps, 3))
+            self.r_ref = np.zeros((self.n_timesteps, 3))
+            self.error_r = np.zeros((self.n_timesteps, 3))
+            # self.rvel_ref = np.zeros((self.n_timesteps, 3))
+            # self.racc_ref = np.zeros((self.n_timesteps, 3))
             self.x_log = np.zeros((self.n_timesteps, 3))
             self.error_x_ant = 0
 
@@ -64,10 +68,11 @@ class CtrlUtils:
         :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
         :return:
         """
+        n_timesteps = int((tf - ti) / dt)
+        time = np.linspace(ti, tf, n_timesteps)
+        k = int(ti / self.dt)
 
-        self.q_ref = [qd for _ in range(self.n_timesteps)]
-
-        time = np.linspace(ti, tf, int((tf - ti) / dt))
+        self.q_ref[k:] = qd
 
         if traj == 'spline3':
             T = tf - ti
@@ -102,14 +107,15 @@ class CtrlUtils:
                                             [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
                                             [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
             coeffs = np.dot(A_inv, Q)
-            for i, t in enumerate(time):
+            for idx, t in enumerate(time):
+                i = idx + k - 1
                 self.q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
                                   coeffs)
                 self.qvel_ref[i] = np.dot(
                     np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
                 self.qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
 
-    def trajectory_gen_operational_space(self, xd, tf, ti=0, dt=0.002, x_act=np.zeros((3,)), xmat_act=np.zeros((9,9)),
+    def trajectory_gen_operational_space(self, xd, xd_mat, tf, ti=0, dt=0.002, x_act=np.zeros((3,)), xmat_act=np.zeros((9,9)),
                                     traj=None):
         """
         Joint trajectory generation with different methods.
@@ -123,9 +129,12 @@ class CtrlUtils:
         :return:
         """
 
-        self.x_ref = [xd for _ in range(self.n_timesteps)]
+        n_timesteps = int((tf - ti) / dt)
+        time_spline = np.linspace(ti, tf, n_timesteps)
+        k = int(ti / self.dt)
+        self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
 
-        time = np.linspace(ti, tf, int((tf - ti) / dt))
+        self.x_ref[k:] = xd
 
         if traj == 'spline3':
             T = tf - ti
@@ -139,7 +148,7 @@ class CtrlUtils:
                                             [1, T, T ** 2, T ** 3],
                                             [0, 1, 2 * T, 3 * T ** 2]]))
             coeffs = np.dot(A_inv, X)
-            for i, t in enumerate(time):
+            for i, t in enumerate(time_spline):
                 self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
                 self.xvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
                 self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
@@ -160,7 +169,7 @@ class CtrlUtils:
                                             [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
                                             [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
             coeffs = np.dot(A_inv, X)
-            for i, t in enumerate(time):
+            for i, t in enumerate(time_spline):
                 self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
                                   coeffs)
                 self.xvel_ref[i] = np.dot(
@@ -192,7 +201,7 @@ class CtrlUtils:
         C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
 
         v_ = self.xacc_ref[k] + np.dot(self.Kd, self.error_xvel) + np.dot(self.Kp, self.error_x)
-        r_ = np.zeros((3,))
+        r_ = self.get_euler_angles(sim)
 
         f = np.dot(H_op_space, np.concatenate((v_,r_))) + C_op_space
 
@@ -241,8 +250,10 @@ class CtrlUtils:
         if self.controller_type == 'inverse_dynamics_operational_space':
             xpos = sim_handle.data.get_site_xpos(self.name_tcp)
             xvel = sim_handle.data.get_site_xvelp(self.name_tcp)
+            rpos = self.get_euler_angles(sim_handle)
             self.error_x = self.x_ref[k] + xd_new - xpos
             self.error_xvel = self.xvel_ref[k] - xvel
+            self.error_r = self.r_ref - rpos
         else:
             qpos = sim_handle.data.qpos
             qvel = sim_handle.data.qvel
@@ -344,3 +355,12 @@ class CtrlUtils:
         jacp  = sim.data.get_site_jacp(self.name_tcp).reshape(Jp_shape)
         jacr  = sim.data.get_site_jacr(self.name_tcp).reshape(Jp_shape)
         return jacp, jacr
+
+    def get_euler_angles(self, sim=None, mat=None):
+        if sim is not None:
+            mat = sim.data.get_site_xmat(self.name_tcp)
+        # notation according to springer handbook of robotics chap. 2, section 2
+        beta = np.arctan2(-mat[2, 0], np.sqrt(mat[0,0]**2+mat[1,0]**2))
+        alpha = np.arctan2(mat[1, 0]/np.cos(beta), mat[0,0]/np.cos(beta))
+        gamma = np.arctan2(mat[2, 1]/np.cos(beta), mat[2,2]/np.cos(beta))
+        return alpha, beta, gamma

@@ -4,7 +4,7 @@ from numpy import cos, pi, array
 import os
 import gym
 
-model = load_model_from_path("/home/glahr/mujoco_gym/gym-kuka-mujoco/gym_kuka_mujoco/envs/assets/full_kuka_two_joints.xml")
+model = load_model_from_path("assets/two_link.xml")
 
 sim = MjSim(model)
 
