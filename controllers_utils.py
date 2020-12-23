@@ -67,130 +67,6 @@ class CtrlUtils:
         self.lambda_H = 0
         self.kp = 0
 
-    def trajectory_gen_joints(self, qd, tf, ti=0, dt=0.002, q_act=np.zeros((7,)), traj=None):
-        """
-        Joint trajectory generation with different methods.
-        :param qd: joint space desired final point
-        :param tf: total time of travel
-        :param n: number of time steps
-        :param ti: initial time
-        :param dt: time step
-        :param q_act: current joint position
-        :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
-        :return:
-        """
-        n_timesteps = int((tf - ti) / dt)
-        time = np.linspace(ti, tf, n_timesteps)
-        k = int(ti / self.dt)
-
-        self.q_ref[k:] = qd
-
-        if traj == 'spline3':
-            T = tf - ti
-            q0 = q_act
-            qvel0 = np.zeros((7,))
-            qf = qd
-            qvelf = np.zeros((7,))
-            Q = np.array([q0, qvel0, qf, qvelf])
-            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
-                                            [0, 1, 0, 0],
-                                            [1, T, T ** 2, T ** 3],
-                                            [0, 1, 2 * T, 3 * T ** 2]]))
-            coeffs = np.dot(A_inv, Q)
-            for i, t in enumerate(time):
-                self.q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
-                self.qvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
-                self.qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
-
-        if traj == 'spline5':
-            T = tf - ti
-            q0 = q_act
-            qvel0 = np.zeros((7,))
-            qacc0 = np.zeros((7,))
-            qf = qd
-            qvelf = np.zeros((7,))
-            qaccf = np.zeros((7,))
-            Q = np.array([q0, qvel0, qacc0, qf, qvelf, qaccf])
-            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
-                                            [0, 1, 0, 0, 0, 0],
-                                            [0, 0, 2, 0, 0, 0],
-                                            [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
-                                            [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
-                                            [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
-            coeffs = np.dot(A_inv, Q)
-            for idx, t in enumerate(time):
-                i = idx + k - 1
-                self.q_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
-                                  coeffs)
-                self.qvel_ref[i] = np.dot(
-                    np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
-                self.qacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
-
-    def trajectory_gen_operational_space(self, xd, xd_mat, tf, ti=0, dt=0.002, x_act=np.zeros((3,)), xmat_act=np.zeros((9,9)),
-                                    traj=None):
-        """
-        Joint trajectory generation with different methods.
-        :param qd: joint space desired final point
-        :param tf: total time of travel
-        :param n: number of time steps
-        :param ti: initial time
-        :param dt: time step
-        :param q_act: current joint position
-        :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
-        :return:
-        """
-
-        n_timesteps = int(tf / dt)
-        time_spline = np.linspace(ti, tf+ti, n_timesteps)
-        k = int(ti / self.dt)
-        # self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
-        quat_ref = np.zeros(4)
-        mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
-
-        self.x_ref[k:] = xd
-        self.r_ref[k:] = quat_ref
-
-        if traj == 'spline3':
-            T = tf
-            x0 = x_act
-            xvel0 = np.zeros((3,))
-            xf = xd
-            xvelf = np.zeros((3,))
-            X = np.array([x0, xvel0, xf, xvelf])
-            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
-                                            [0, 1, 0, 0],
-                                            [1, T, T ** 2, T ** 3],
-                                            [0, 1, 2 * T, 3 * T ** 2]]))
-            coeffs = np.dot(A_inv, X)
-            for i, t in enumerate(time_spline):
-                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
-                self.xvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
-                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
-
-        if traj == 'spline5':
-            T = tf
-            x0 = x_act
-            xvel0 = np.zeros((3,))
-            xacc0 = np.zeros((3,))
-            xf = xd
-            xvelf = np.zeros((3,))
-            xaccf = np.zeros((3,))
-            X = np.array([x0, xvel0, xacc0, xf, xvelf, xaccf])
-            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
-                                            [0, 1, 0, 0, 0, 0],
-                                            [0, 0, 2, 0, 0, 0],
-                                            [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
-                                            [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
-                                            [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
-            coeffs = np.dot(A_inv, X)
-            for i, t in enumerate(time_spline):
-                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
-                                  coeffs)
-                self.xvel_ref[i] = np.dot(
-                    np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
-                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
-        print("end")
-
     def ctrl_independent_joints(self):
         error_q_int = (self.error_q + self.error_q_ant) * self.dt / 2 + self.error_q_int_ant
         self.error_q_int_ant = error_q_int
@@ -277,17 +153,17 @@ class CtrlUtils:
 
         return tau + tau_null_space
 
-    def ctrl_inverse_dynamics(self, sim, k):
+    def ctrl_inverse_dynamics(self, sim, qacc_ref):
         H = self.get_inertia_matrix(sim)
         C = self.get_coriolis_vector(sim)
 
-        v_ = self.qacc_ref[k] + np.dot(self.Kd, self.error_qvel) + np.dot(self.Kp, self.error_q)
+        v_ = qacc_ref + np.dot(self.Kd, self.error_qvel) + np.dot(self.Kp, self.error_q)
 
         tau = np.dot(H, v_) + C
 
         return tau
 
-    def ctrl_action(self, sim, k):
+    def ctrl_action(self, sim, k, qacc_ref):
         if self.controller_type == 'independent_joints':
             if self.Kp is None:
                 self.get_pd_matrices()
@@ -298,21 +174,20 @@ class CtrlUtils:
         if self.controller_type == 'inverse_dynamics':
             if self.Kp is None:
                 self.get_pd_matrices()
-            u = self.ctrl_inverse_dynamics(sim, k)
+            u = self.ctrl_inverse_dynamics(sim, qacc_ref)
 
         if self.controller_type == 'inverse_dynamics_operational_space':
             if self.Kp is None:
                 self.get_pd_matrices()
             u = self.ctrl_inverse_dynamics_operational_space(sim, k)
 
-
         return u
 
-    def calculate_errors(self, sim_handle, k, qd_new=0, xd_new=0):
+    def calculate_errors(self, sim, k, qpos_ref, qvel_ref, xd_new=0):
         if self.controller_type == 'inverse_dynamics_operational_space':
-            xpos = sim_handle.data.get_site_xpos(self.name_tcp)
-            xvel = sim_handle.data.get_site_xvelp(self.name_tcp)
-            rpos = sim_handle.data.get_site_xmat(self.name_tcp)
+            xpos = sim.data.get_site_xpos(self.name_tcp)
+            xvel = sim.data.get_site_xvelp(self.name_tcp)
+            rpos = sim.data.get_site_xmat(self.name_tcp)
             self.error_x = self.x_ref[k] + xd_new - xpos
             self.error_xvel = self.xvel_ref[k] - xvel
             # self.error_r = self.r_ref - rpos
@@ -321,10 +196,10 @@ class CtrlUtils:
             mujoco_py.functions.mju_subQuat(self.error_r, self.r_ref[k], quat_ref)
             self.error_rvel = self.rvel_ref
         else:
-            qpos = sim_handle.data.qpos
-            qvel = sim_handle.data.qvel
-            self.error_q = self.q_ref[k] + qd_new - qpos
-            self.error_qvel = self.qvel_ref[k] - qvel
+            qpos = sim.data.qpos
+            qvel = sim.data.qvel
+            self.error_q = qpos_ref - qpos
+            self.error_qvel = qvel_ref - qvel
 
     def kuka_subtree_mass(self):
         body_names = ['kuka_link_{}'.format(i + 1) for i in range(7)]
@@ -450,3 +325,152 @@ class CtrlUtils:
         gamma = np.arctan2(2*(quat[0]*quat[3]+quat[1]*quat[2]), 1-2*(quat[2]**2+quat[3]**2))
         return np.array([beta, alpha, gamma])
 
+
+
+
+class TrajGen:
+
+    def __init__(self):
+        self.extra_points = 0
+        self.iterator = None
+
+    def next(self):
+        assert(self.iterator is not None)
+        return next(self.iterator)
+
+class TrajectoryJoint(TrajGen):
+
+    def __init__(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+        super(TrajectoryJoint, self).__init__()
+        self.iterator = self._traj_implementation(qd, ti, t_duration, dt, q_act, traj_profile)
+
+    def _traj_implementation(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+        """
+        Joint trajectory generation with different methods.
+        :param qd: joint space desired final point
+        :param t_duration: total time of travel
+        :param n: number of time steps
+        :param ti: initial time
+        :param dt: time step
+        :param q_act: current joint position
+        :param traj_profile: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
+        :return:
+        """
+        n_timesteps = int((t_duration) / dt)
+        time = np.linspace(ti, t_duration + ti, n_timesteps)
+        # tf = ti + t_duration
+
+        if traj_profile == 'spline3':
+            T = t_duration
+            qvel0 = np.zeros((7,))
+            qvelf = np.zeros((7,))
+            Q = np.array([q_act, qvel0, qd, qvelf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
+                                            [0, 1, 0, 0],
+                                            [1, T, T ** 2, T ** 3],
+                                            [0, 1, 2 * T, 3 * T ** 2]]))
+            coeffs = np.dot(A_inv, Q)
+            for t in time:
+                q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
+                qvel_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
+                qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
+                yield q_ref, qvel_ref, qacc_ref
+
+        if traj_profile == 'spline5':
+            T = t_duration
+            qvel0 = np.zeros((7,))
+            qacc0 = np.zeros((7,))
+            qvelf = np.zeros((7,))
+            qaccf = np.zeros((7,))
+            Q = np.array([q_act, qvel0, qacc0, qd, qvelf, qaccf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
+                                            [0, 1, 0, 0, 0, 0],
+                                            [0, 0, 2, 0, 0, 0],
+                                            [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
+                                            [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
+                                            [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
+            coeffs = np.dot(A_inv, Q)
+            for t in time:
+                q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
+                                  coeffs)
+                qvel_ref = np.dot(
+                    np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
+                qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
+                yield q_ref, qvel_ref, qacc_ref
+
+        while True:
+            self.extra_points = self.extra_points + 1
+            yield q_ref, qvel_ref, qacc_ref
+
+class TrajectoryOperational(TrajGen):
+
+    def __init__(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj_profile=None):
+        super(TrajectoryOperational, self).__init__(ti, t_duration, dt, traj_profile)
+        self.iterator = self._traj_implementation(posed, ti, t_duration, dt, pose_act, traj_profile)
+
+    def _traj_implementation(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj=None):
+        """
+        Joint trajectory generation with different methods.
+        :param qd: joint space desired final point
+        :param t_duration: total time of travel
+        :param n: number of time steps
+        :param ti: initial time
+        :param dt: time step
+        :param q_act: current joint position
+        :param traj: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
+        :return:
+        """
+
+        xd = posed[:3]
+        xd_mat = np.zeros((3,3))
+
+        n_timesteps = int(t_duration / dt)
+        time_spline = np.linspace(ti, t_duration + ti, n_timesteps)
+        k = int(ti / self.dt)
+        # self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
+        quat_ref = np.zeros(4)
+        mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
+
+        self.x_ref[k:] = xd
+        self.r_ref[k:] = quat_ref
+
+        if traj == 'spline3':
+            T = t_duration
+            x0 = pose_act[:3]
+            xvel0 = np.zeros((3,))
+            xf = xd
+            xvelf = np.zeros((3,))
+            X = np.array([x0, xvel0, xf, xvelf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
+                                            [0, 1, 0, 0],
+                                            [1, T, T ** 2, T ** 3],
+                                            [0, 1, 2 * T, 3 * T ** 2]]))
+            coeffs = np.dot(A_inv, X)
+            for i, t in enumerate(time_spline):
+                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
+                self.xvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
+                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
+
+        if traj == 'spline5':
+            T = t_duration
+            x0 = pose_act[:3]
+            xvel0 = np.zeros((3,))
+            xacc0 = np.zeros((3,))
+            xf = xd
+            xvelf = np.zeros((3,))
+            xaccf = np.zeros((3,))
+            X = np.array([x0, xvel0, xacc0, xf, xvelf, xaccf])
+            A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
+                                            [0, 1, 0, 0, 0, 0],
+                                            [0, 0, 2, 0, 0, 0],
+                                            [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
+                                            [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
+                                            [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
+            coeffs = np.dot(A_inv, X)
+            for i, t in enumerate(time_spline):
+                self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
+                                  coeffs)
+                self.xvel_ref[i] = np.dot(
+                    np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
+                self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
+        print("end")

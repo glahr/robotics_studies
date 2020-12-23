@@ -3,7 +3,7 @@ from mujoco_py import load_model_from_path, MjSim, MjViewer
 # from gym_kuka_mujoco.utils.kinematics import forwardKin, forwardKinJacobian, forwardKinSite, forwardKinJacobianSite
 import mujoco_py
 import numpy as np
-from controllers_utils import CtrlUtils
+from controllers_utils import CtrlUtils, TrajectoryOperational, TrajectoryJoint
 
 
 def load_model_mujoco(simulate, use_gravity):
@@ -43,6 +43,10 @@ if __name__ == '__main__':
     sim, viewer = load_model_mujoco(simulate, use_gravity)
     sim.forward()
     ctrl = CtrlUtils(sim, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type)
+    trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile='spline3')
+    # trajectory.__next__()
+    # trajectory.__str__()
+    # str(trajectory)
     ctrl.kp = 20
 
     ctrl.qd = qd
@@ -50,15 +54,15 @@ if __name__ == '__main__':
     ctrl.lambda_H = 3.5
     tf = 2  # spline final time
 
-    ctrl.trajectory_gen_joints(qd, tf, traj='spline5')
+    # ctrl.trajectory_gen_joints(qd, tf, traj='spline5')
 
     # ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
 
-    if controller_type == 'inverse_dynamics_operational_space':
-        ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
-        # ctrl.trajectory_gen_operational_space(xd+np.array([0.2, 0, 1.8]), tf=8, ti=5, x_act=xd, traj='spline5')
-    else:
-        ctrl.trajectory_gen_joints(qd2, tf=5+tf, ti=5, q_act=qd, traj='spline5')
+    # if controller_type == 'inverse_dynamics_operational_space':
+    #     ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
+    #     # ctrl.trajectory_gen_operational_space(xd+np.array([0.2, 0, 1.8]), tf=8, ti=5, x_act=xd, traj='spline5')
+    # else:
+    #     ctrl.trajectory_gen_joints(qd2, tf=5+tf, ti=5, q_act=qd, traj='spline5')
 
     # NAO EDITAR
     eps = 1*np.pi/180
@@ -72,30 +76,11 @@ if __name__ == '__main__':
             # qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
         # print("tolerancia " + str(sim.data.time))
 
-        ctrl.calculate_errors(sim, k)
+        qpos_ref, qvel_ref, qacc_ref = trajectory.next()
 
-        u = ctrl.ctrl_action(sim, k)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+        ctrl.calculate_errors(sim, k, qpos_ref, qvel_ref)
 
-        sim.data.ctrl[:] = u
-
-        ctrl.step(sim, k)
-        # sim.step()
-        if simulate:
-            viewer.render()
-        k += 1
-        if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
-            break
-
-    # TODO: Operational space control
-    ctrl.controller_type = 'inverse_dynamics_operational_space'
-    ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='step')
-    ctrl.kp = 500
-    ctrl.get_pd_matrices()
-    print(sim.data.get_site_xpos(ctrl.name_tcp))
-    while True:
-        ctrl.calculate_errors(sim, k)
-
-        u = ctrl.ctrl_action(sim, k)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+        u = ctrl.ctrl_action(sim, k, qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
 
         sim.data.ctrl[:] = u
 
@@ -106,6 +91,27 @@ if __name__ == '__main__':
         k += 1
         if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
             break
+
+    # # TODO: Operational space control
+    # ctrl.controller_type = 'inverse_dynamics_operational_space'
+    # ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='step')
+    # ctrl.kp = 500
+    # ctrl.get_pd_matrices()
+    # print(sim.data.get_site_xpos(ctrl.name_tcp))
+    # while True:
+    #     ctrl.calculate_errors(sim, k)
+    #
+    #     u = ctrl.ctrl_action(sim, k)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+    #
+    #     sim.data.ctrl[:] = u
+    #
+    #     ctrl.step(sim, k)
+    #     # sim.step()
+    #     if simulate:
+    #         viewer.render()
+    #     k += 1
+    #     if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
+    #         break
     #
     if plot_2d:
         ctrl.plots()
