@@ -1,4 +1,4 @@
-<mujoco model="Soft box">
+<mujoco model="two_link">
     <!--  Copyright © 2018, Roboti LLC
 
           This file is licensed under the MuJoCo Resource License (the "License").
@@ -30,5 +30,5 @@
     <actuator>
     		<motor name="motor_1" joint="q1" gear="1"/>
     		<motor name="motor_2" joint="q2" gear="1"/>
-	  </actuator>
+    </actuator>
 </mujoco>

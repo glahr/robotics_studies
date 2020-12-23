@@ -1,6 +1,8 @@
 import numpy as np
 import mujoco_py
 import matplotlib.pyplot as plt
+import roboticstoolbox as rtb
+import spatialmath as smath
 
 
 class CtrlUtils:
@@ -39,12 +41,19 @@ class CtrlUtils:
             self.x_ref = np.zeros((self.n_timesteps, 3))
             self.xvel_ref = np.zeros((self.n_timesteps, 3))
             self.xacc_ref = np.zeros((self.n_timesteps, 3))
-            self.r_ref = np.zeros((self.n_timesteps, 3))
-            self.error_r = np.zeros((self.n_timesteps, 3))
+            self.r_ref = np.zeros((self.n_timesteps, 4))
+            self.rvel_ref = np.zeros((3, ))
+            self.racc_ref = np.zeros((self.n_timesteps, 3))
+            # self.error_r = np.zeros((self.n_timesteps, 3))
+            self.error_r = np.zeros((3, ))
+            self.error_rvel = np.zeros((3,))
+            # self.error_racc = np.zeros((3,))
             # self.rvel_ref = np.zeros((self.n_timesteps, 3))
             # self.racc_ref = np.zeros((self.n_timesteps, 3))
             self.x_log = np.zeros((self.n_timesteps, 3))
+            self.r_log = np.zeros((self.n_timesteps, 4))
             self.error_x_ant = 0
+            self.robot_rtb = rtb.models.DH.LWR4()
 
 
         self.Kp = None
@@ -131,15 +140,18 @@ class CtrlUtils:
         :return:
         """
 
-        n_timesteps = int((tf - ti) / dt)
-        time_spline = np.linspace(ti, tf, n_timesteps)
+        n_timesteps = int(tf / dt)
+        time_spline = np.linspace(ti, tf+ti, n_timesteps)
         k = int(ti / self.dt)
-        self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
+        # self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
+        quat_ref = np.zeros(4)
+        mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
 
         self.x_ref[k:] = xd
+        self.r_ref[k:] = quat_ref
 
         if traj == 'spline3':
-            T = tf - ti
+            T = tf
             x0 = x_act
             xvel0 = np.zeros((3,))
             xf = xd
@@ -156,7 +168,7 @@ class CtrlUtils:
                 self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
 
         if traj == 'spline5':
-            T = tf - ti
+            T = tf
             x0 = x_act
             xvel0 = np.zeros((3,))
             xacc0 = np.zeros((3,))
@@ -177,6 +189,7 @@ class CtrlUtils:
                 self.xvel_ref[i] = np.dot(
                     np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
                 self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
+        print("end")
 
     def ctrl_independent_joints(self):
         error_q_int = (self.error_q + self.error_q_ant) * self.dt / 2 + self.error_q_int_ant
@@ -191,6 +204,9 @@ class CtrlUtils:
         jacp, jacr = self.get_jacobian_site(sim)
 
         J = np.vstack((jacp, jacr))
+        # T = np.array(np.bmat([[np.eye(3), np.zeros((3, 3))], [np.zeros((3, 3)), sim.data.get_site_xmat(self.name_tcp)]]))
+        # Jt = T.dot(J)
+        # J = Jt
 
         if self.J_ant is None:
             self.J_ant = np.zeros(J.shape)
@@ -199,29 +215,50 @@ class CtrlUtils:
             J_dot = (J - self.J_ant) / self.dt
 
         J_inv = np.linalg.pinv(J)
+        # Jt_inv = J_inv.T
+
 
         # equations from Robotics Handbook chapter 3, section 3.3
-        H_op_space = np.linalg.inv(np.dot(J, np.dot(H_inv, J.transpose())))
-        C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
+        H_op_space = np.linalg.inv(np.dot(J, np.dot(H_inv, J.T)))
+
+        J_bar = H_inv.dot(J.T.dot(H_op_space))
+
+
+        # NULL SPACE
+        # xd_mat = np.array([[3.72030973e-01, -1.52734025e-03, 9.28219059e-01],
+        #                    [-1.06081268e-03, -9.99998693e-01, -1.22027561e-03],
+        #                    [9.28219710e-01, -5.30686220e-04, -3.72032107e-01]])
+        # xd = np.array([9.92705091e-01, - 2.50066075e-04 - 0.1, 1.76208494e+00])
+        # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
+        # # T_fkine = np.array(np.bmat([[np.bmat([xd_mat, xd.reshape(3, 1)])], [np.bmat([np.bmat([np.zeros(3,), [1]])])]]))
+        # Txd = smath.SE3(xd)
+        # Txd.R[:] = xd_mat
+        # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
+        # tau_null_space = projection_matrix_null_space.dot(10*np.eye(7).dot(qd))
+
+
+        # H_op_space = Jt_inv.dot(H.dot(J_inv))
+        # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
+        # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv.dot(J))) - H_op_space.dot(J.dot(J_inv.dot(J)))
+        C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
 
         # angle
-        xd_mat = np.array([[3.72030973e-01, -1.52734025e-03, 9.28219059e-01],
-                           [-1.06081268e-03, -9.99998693e-01, -1.22027561e-03],
-                           [9.28219710e-01, -5.30686220e-04, -3.72032107e-01]])
-        quat_ref = np.zeros((4,))
-        quat_act = np.zeros((4,))
-        quat_vel_ref = np.zeros((3,))
-        quat_acc_ref = np.zeros((3,))
+        # quat_ref = np.zeros((4,))
+        # quat_act = np.zeros((4,))
+        # quat_vel_ref = np.zeros((3,))
+        # quat_acc_ref = np.zeros((3,))
 
-        mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
-        mujoco_py.functions.mju_mat2Quat(quat_act, sim.data.get_site_xmat(self.name_tcp).flatten())
+        # mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
+        # mujoco_py.functions.mju_mat2Quat(quat_act, sim.data.get_site_xmat(self.name_tcp).flatten())
 
-        erro_quat = np.zeros((3,))
-        mujoco_py.functions.mju_subQuat(erro_quat, quat_ref, quat_act)
-        erro_vel_quat = quat_vel_ref
+        # erro_quat = np.zeros((3,))
+        # mujoco_py.functions.mju_subQuat(erro_quat, quat_ref, quat_act)
+        # erro_vel_quat = quat_vel_ref
         # mujoco_py.functions.mju_subQuat(erro_quat, qa, qb)
 
-        v_ = np.concatenate((self.xacc_ref[k], np.zeros(3))) + np.dot(self.Kd, np.concatenate((self.error_xvel, erro_vel_quat))) + np.dot(self.Kp, np.concatenate((self.error_x, erro_quat)))
+        v_ = np.concatenate((self.xacc_ref[k], np.zeros(3, ))) +\
+             np.dot(self.Kd, np.concatenate((self.error_xvel, self.error_rvel))) +\
+             np.dot(self.Kp, np.concatenate((self.error_x, self.error_r)))
 
 
         # erro_euler = self.get_euler_from_quat(erro_quat)
@@ -230,7 +267,7 @@ class CtrlUtils:
 
         f = np.dot(H_op_space, v_) + C_op_space
 
-        tau = np.dot(J.transpose(), f)
+        tau = np.dot(J.T, f)
 
         tau_max = 50
 
@@ -238,7 +275,7 @@ class CtrlUtils:
             for i, tau_i in enumerate(tau):
                 tau[i] = np.sign(tau_i) * tau_max
 
-        return tau
+        return tau #+tau_null_space
 
     def ctrl_inverse_dynamics(self, sim, k):
         H = self.get_inertia_matrix(sim)
@@ -275,10 +312,14 @@ class CtrlUtils:
         if self.controller_type == 'inverse_dynamics_operational_space':
             xpos = sim_handle.data.get_site_xpos(self.name_tcp)
             xvel = sim_handle.data.get_site_xvelp(self.name_tcp)
-            rpos = self.get_euler_angles(sim_handle)
+            rpos = sim_handle.data.get_site_xmat(self.name_tcp)
             self.error_x = self.x_ref[k] + xd_new - xpos
             self.error_xvel = self.xvel_ref[k] - xvel
-            self.error_r = self.r_ref - rpos
+            # self.error_r = self.r_ref - rpos
+            quat_ref = np.zeros((4,))
+            mujoco_py.functions.mju_mat2Quat(quat_ref, rpos.flatten())
+            mujoco_py.functions.mju_subQuat(self.error_r, self.r_ref[k], quat_ref)
+            self.error_rvel = self.rvel_ref
         else:
             qpos = sim_handle.data.qpos
             qvel = sim_handle.data.qvel
@@ -341,7 +382,7 @@ class CtrlUtils:
         comp = np.zeros((sim.model.nv,))
         for body, mass in zip(self.name_bodies, self.mass_links):
             Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
-            comp = comp - np.dot(Jp.transpose(), sim.model.opt.gravity * mass)
+            comp = comp - np.dot(Jp.T, sim.model.opt.gravity * mass)
         return comp
 
     def plots(self):
@@ -349,6 +390,11 @@ class CtrlUtils:
             plt.plot(self.time_log, self.x_log)
             plt.plot(self.time_log, [x_r for x_r in self.x_ref], 'k--')
             plt.legend(['x' + str(i + 1) for i in range(3)])
+
+            # plt.plot(self.time_log, self.r_log)
+            # plt.plot(self.time_log, [quat_r for quat_r in self.r_ref], 'k--')
+            # plt.legend(['quat' + str(i + 1) for i in range(4)])
+
             plt.show()
         else:
             plt.plot(self.time_log, self.q_log)
@@ -361,6 +407,10 @@ class CtrlUtils:
             self.error_x_ant = self.error_x
             if self.plot_2d:
                 self.x_log[k] = sim.data.get_site_xpos(self.name_tcp)
+                rpos = sim.data.get_site_xmat(self.name_tcp)
+                quat_log = np.zeros((4,))
+                mujoco_py.functions.mju_mat2Quat(quat_log, rpos.flatten())
+                self.r_log[k] = quat_log
                 self.time_log[k] = sim.data.time
         else:
             self.error_q_ant = self.error_q

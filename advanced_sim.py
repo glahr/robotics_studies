@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     ctrl.trajectory_gen_joints(qd, tf, traj='spline5')
 
-    ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
+    # ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
 
     if controller_type == 'inverse_dynamics_operational_space':
         ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
@@ -88,7 +88,8 @@ if __name__ == '__main__':
 
     # TODO: Operational space control
     ctrl.controller_type = 'inverse_dynamics_operational_space'
-    ctrl.kp = 50
+    ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='step')
+    ctrl.kp = 500
     ctrl.get_pd_matrices()
     print(sim.data.get_site_xpos(ctrl.name_tcp))
     while True:
@@ -108,6 +109,5 @@ if __name__ == '__main__':
     #
     if plot_2d:
         ctrl.plots()
-
 
     # print("biggest element = ", max_diag_element)
