@@ -3,6 +3,17 @@ import mujoco_py
 import matplotlib.pyplot as plt
 import roboticstoolbox as rtb
 import spatialmath as smath
+from enum import Enum, auto
+
+class TrajectoryProfile(Enum):
+    SPLINE3 = auto()
+    SPLINE5 = auto()
+    STEP    = auto()
+
+class CtrlType(Enum):
+    INDEP_JOINTS = auto()
+    INV_DYNAMICS = auto()
+    INV_DYNAMICS_OP_SPACE = auto()
 
 
 class CtrlUtils:
@@ -164,19 +175,19 @@ class CtrlUtils:
         return tau
 
     def ctrl_action(self, sim, k, qacc_ref):
-        if self.controller_type == 'independent_joints':
+        if self.controller_type == CtrlType.INDEP_JOINTS:
             if self.Kp is None:
                 self.get_pd_matrices()
             u = self.ctrl_independent_joints()
             if self.use_gravity:
                 u += self.tau_g(sim)
 
-        if self.controller_type == 'inverse_dynamics':
+        if self.controller_type == CtrlType.INV_DYNAMICS:
             if self.Kp is None:
                 self.get_pd_matrices()
             u = self.ctrl_inverse_dynamics(sim, qacc_ref)
 
-        if self.controller_type == 'inverse_dynamics_operational_space':
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             if self.Kp is None:
                 self.get_pd_matrices()
             u = self.ctrl_inverse_dynamics_operational_space(sim, k)
@@ -184,7 +195,7 @@ class CtrlUtils:
         return u
 
     def calculate_errors(self, sim, k, qpos_ref, qvel_ref, xd_new=0):
-        if self.controller_type == 'inverse_dynamics_operational_space':
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             xpos = sim.data.get_site_xpos(self.name_tcp)
             xvel = sim.data.get_site_xvelp(self.name_tcp)
             rpos = sim.data.get_site_xmat(self.name_tcp)
@@ -208,7 +219,7 @@ class CtrlUtils:
 
     def get_pd_matrices(self):
 
-        if self.controller_type == 'inverse_dynamics_operational_space':
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             n_space = 6
         else:
             n_space = 7
@@ -217,7 +228,7 @@ class CtrlUtils:
         Kp = np.eye(n_space)
         self.Kp_rot = np.eye(n_space+1)
         for i in range(n_space):
-            if self.controller_type == 'inverse_dynamics_operational_space':
+            if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
                 Kp[i, i] = self.kp
                 # self.Kp_rot[i,i] = self.kp
             else:
@@ -261,7 +272,7 @@ class CtrlUtils:
         return comp
 
     def plots(self):
-        if self.controller_type == 'inverse_dynamics_operational_space':
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             plt.plot(self.time_log, self.x_log)
             plt.plot(self.time_log, [x_r for x_r in self.x_ref], 'k--')
             plt.legend(['x' + str(i + 1) for i in range(3)])
@@ -278,7 +289,7 @@ class CtrlUtils:
             plt.show()
 
     def step(self, sim, k):
-        if self.controller_type == 'inverse_dynamics_operational_space':
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             self.error_x_ant = self.error_x
             if self.plot_2d:
                 self.x_log[k] = sim.data.get_site_xpos(self.name_tcp)
@@ -360,7 +371,7 @@ class TrajectoryJoint(TrajGen):
         time = np.linspace(ti, t_duration + ti, n_timesteps)
         # tf = ti + t_duration
 
-        if traj_profile == 'spline3':
+        if traj_profile == TrajectoryProfile.SPLINE3:
             T = t_duration
             qvel0 = np.zeros((7,))
             qvelf = np.zeros((7,))
@@ -376,7 +387,7 @@ class TrajectoryJoint(TrajGen):
                 qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
                 yield q_ref, qvel_ref, qacc_ref
 
-        if traj_profile == 'spline5':
+        if traj_profile == TrajectoryProfile.SPLINE5:
             T = t_duration
             qvel0 = np.zeros((7,))
             qacc0 = np.zeros((7,))
@@ -405,7 +416,7 @@ class TrajectoryJoint(TrajGen):
 class TrajectoryOperational(TrajGen):
 
     def __init__(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj_profile=None):
-        super(TrajectoryOperational, self).__init__(ti, t_duration, dt, traj_profile)
+        super(TrajectoryOperational, self).__init__()
         self.iterator = self._traj_implementation(posed, ti, t_duration, dt, pose_act, traj_profile)
 
     def _traj_implementation(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj=None):
@@ -421,8 +432,8 @@ class TrajectoryOperational(TrajGen):
         :return:
         """
 
-        xd = posed[:3]
-        xd_mat = np.zeros((3,3))
+        xd = posed[0]
+        xd_mat = posed[1]
 
         n_timesteps = int(t_duration / dt)
         time_spline = np.linspace(ti, t_duration + ti, n_timesteps)
@@ -434,13 +445,13 @@ class TrajectoryOperational(TrajGen):
         self.x_ref[k:] = xd
         self.r_ref[k:] = quat_ref
 
-        if traj == 'spline3':
+        if traj == TrajectoryProfile.SPLINE3:
             T = t_duration
-            x0 = pose_act[:3]
+            posed0 = pose_act
             xvel0 = np.zeros((3,))
             xf = xd
             xvelf = np.zeros((3,))
-            X = np.array([x0, xvel0, xf, xvelf])
+            X = np.array([posed0, xvel0, xf, xvelf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
                                             [0, 1, 0, 0],
                                             [1, T, T ** 2, T ** 3],
@@ -451,15 +462,15 @@ class TrajectoryOperational(TrajGen):
                 self.xvel_ref[i] = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
                 self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
 
-        if traj == 'spline5':
+        if traj == TrajectoryProfile.SPLINE5:
             T = t_duration
-            x0 = pose_act[:3]
+            posed0 = pose_act[:3]
             xvel0 = np.zeros((3,))
             xacc0 = np.zeros((3,))
             xf = xd
             xvelf = np.zeros((3,))
             xaccf = np.zeros((3,))
-            X = np.array([x0, xvel0, xacc0, xf, xvelf, xaccf])
+            X = np.array([posed0, xvel0, xacc0, xf, xvelf, xaccf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
                                             [0, 1, 0, 0, 0, 0],
                                             [0, 0, 2, 0, 0, 0],

@@ -3,8 +3,7 @@ from mujoco_py import load_model_from_path, MjSim, MjViewer
 # from gym_kuka_mujoco.utils.kinematics import forwardKin, forwardKinJacobian, forwardKinSite, forwardKinJacobianSite
 import mujoco_py
 import numpy as np
-from controllers_utils import CtrlUtils, TrajectoryOperational, TrajectoryJoint
-
+from controllers_utils import CtrlUtils, TrajectoryOperational, TrajectoryJoint, TrajectoryProfile, CtrlType
 
 def load_model_mujoco(simulate, use_gravity):
     model_name = "assets/full_kuka_all_joints"
@@ -36,14 +35,14 @@ if __name__ == '__main__':
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     qd2 = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
 
-    # controller_type = 'independent_joints'
-    controller_type = 'inverse_dynamics'
-    # controller_type = 'inverse_dynamics_operational_space'
+    # controller_type = CtrlType.INDEP_JOINTS
+    controller_type = CtrlType.INV_DYNAMICS
+    # controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
     sim, viewer = load_model_mujoco(simulate, use_gravity)
     sim.forward()
     ctrl = CtrlUtils(sim, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type)
-    trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile='spline3')
+    trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
     # trajectory.__next__()
     # trajectory.__str__()
     # str(trajectory)
@@ -65,7 +64,7 @@ if __name__ == '__main__':
     #     ctrl.trajectory_gen_joints(qd2, tf=5+tf, ti=5, q_act=qd, traj='spline5')
 
     # NAO EDITAR
-    eps = 1*np.pi/180
+    eps = 5*np.pi/180
     k = 1
 
     # TODO: just to leave singularity position
@@ -94,8 +93,8 @@ if __name__ == '__main__':
 
     # # TODO: Operational space control
     # ctrl.controller_type = 'inverse_dynamics_operational_space'
-    # ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='step')
-    # ctrl.kp = 500
+    # trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, traj_profile='spline3')
+    # ctrl.kp = 50
     # ctrl.get_pd_matrices()
     # print(sim.data.get_site_xpos(ctrl.name_tcp))
     # while True:
@@ -112,8 +111,9 @@ if __name__ == '__main__':
     #     k += 1
     #     if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
     #         break
-    #
+
     if plot_2d:
         ctrl.plots()
 
+    print(trajectory.extra_points)
     # print("biggest element = ", max_diag_element)
