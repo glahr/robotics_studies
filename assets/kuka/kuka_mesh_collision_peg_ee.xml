@@ -40,6 +40,7 @@
                   <geom class="collision" type="mesh" mesh="kuka_link_7_mesh"/>
                   <geom class="visual" type="mesh" mesh="kuka_link_7_mesh" material="kuka_grey"/>
                   <site name="ee_site" pos="0 0 0.05" euler="0 0 0" size="0.005, 0.005, 0.005"/>
+                  <camera pos="0.1 0 0" euler="3.14159265359 0 -1.57079632679"/>
                   <include file="peg/peg_collision.xml"/>
                 </body>
               </body>
