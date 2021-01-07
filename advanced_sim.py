@@ -47,21 +47,10 @@ if __name__ == '__main__':
     # trajectory.__str__()
     # str(trajectory)
     ctrl.kp = 20
-
     ctrl.qd = qd
     # ctrl.kp = 11
     ctrl.lambda_H = 3.5
     tf = 2  # spline final time
-
-    # ctrl.trajectory_gen_joints(qd, tf, traj='spline5')
-
-    # ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
-
-    # if controller_type == 'inverse_dynamics_operational_space':
-    #     ctrl.trajectory_gen_operational_space(xd, xd_mat, tf, ti=sim.data.time, traj='spline5')
-    #     # ctrl.trajectory_gen_operational_space(xd+np.array([0.2, 0, 1.8]), tf=8, ti=5, x_act=xd, traj='spline5')
-    # else:
-    #     ctrl.trajectory_gen_joints(qd2, tf=5+tf, ti=5, q_act=qd, traj='spline5')
 
     # NAO EDITAR
     eps = 5*np.pi/180
@@ -76,13 +65,9 @@ if __name__ == '__main__':
         # print("tolerancia " + str(sim.data.time))
 
         qpos_ref, qvel_ref, qacc_ref = trajectory.next()
-
-        ctrl.calculate_errors(sim, k, qpos_ref, qvel_ref)
-
-        u = ctrl.ctrl_action(sim, k, qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
-
+        ctrl.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
+        u = ctrl.ctrl_action(sim, k, qacc_ref=qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
         sim.data.ctrl[:] = u
-
         ctrl.step(sim, k)
         # sim.step()
         if simulate:
@@ -91,26 +76,24 @@ if __name__ == '__main__':
         if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
             break
 
-    # # TODO: Operational space control
-    # ctrl.controller_type = 'inverse_dynamics_operational_space'
-    # trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, traj_profile='spline3')
-    # ctrl.kp = 50
-    # ctrl.get_pd_matrices()
-    # print(sim.data.get_site_xpos(ctrl.name_tcp))
-    # while True:
-    #     ctrl.calculate_errors(sim, k)
-    #
-    #     u = ctrl.ctrl_action(sim, k)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
-    #
-    #     sim.data.ctrl[:] = u
-    #
-    #     ctrl.step(sim, k)
-    #     # sim.step()
-    #     if simulate:
-    #         viewer.render()
-    #     k += 1
-    #     if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
-    #         break
+    # TODO: Operational space control
+    k = 0
+    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    trajectory2 = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(sim.data.get_site_xpos(ctrl.name_tcp), sim.data.get_site_xmat(ctrl.name_tcp)), traj_profile=TrajectoryProfile.SPLINE3)
+    ctrl.kp = 50
+    ctrl.get_pd_matrices()
+    while True:
+        kinematics = trajectory2.next()
+        ctrl.calculate_errors(sim, k, kin=kinematics)
+        u = ctrl.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+        sim.data.ctrl[:] = u
+        ctrl.step(sim, k)
+        # sim.step()
+        if simulate:
+            viewer.render()
+        k += 1
+        if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
+            break
 
     if plot_2d:
         ctrl.plots()
