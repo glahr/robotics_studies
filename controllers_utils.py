@@ -65,6 +65,7 @@ class CtrlUtils:
             self.r_log = np.zeros((self.n_timesteps, 4))
             self.error_x_ant = 0
             self.robot_rtb = rtb.models.DH.LWR4()
+            self.q_nullspace = 0
 
 
         self.Kp = None
@@ -110,18 +111,30 @@ class CtrlUtils:
 
         J_bar = H_inv.dot(J.T.dot(H_op_space))
 
+        # # Moore-penrose pseudoinverse  A^# = (A^TA)^-1 * A^T with A = J^T
+        # JTpinv = np.linalg.inv(J * J.T) * J
+        # lambda_ = np.linalg.inv(J * M_inv * J.T)
+        #
+        # # Null space projector
+        # N = (eye(6) - J.T * JTpinv)
+        # # null space torques (postural task)
+        # tau0 = 50 * (conf.q0 - q) - 10 * qd
+        # tau_null = N * tau0
+
 
         # NULL SPACE
         # xd_mat = np.array([[3.72030973e-01, -1.52734025e-03, 9.28219059e-01],
         #                    [-1.06081268e-03, -9.99998693e-01, -1.22027561e-03],
         #                    [9.28219710e-01, -5.30686220e-04, -3.72032107e-01]])
         # xd = np.array([9.92705091e-01, - 2.50066075e-04, 1.76208494e+00])
-        projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
+        # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
+        projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
         # T_fkine = np.array(np.bmat([[np.bmat([xd_mat, xd.reshape(3, 1)])], [np.bmat([np.bmat([np.zeros(3,), [1]])])]]))
         # Txd = smath.SE3(xd)
         # Txd.R[:] = xd_mat
         # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
-        tau_null_space = projection_matrix_null_space.dot(5*np.eye(7).dot(sim.data.qpos))
+        tau0 = 20*(self.q_nullspace - sim.data.qpos)
+        tau_null_space = projection_matrix_null_space.dot(tau0)
 
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))

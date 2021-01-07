@@ -3,6 +3,7 @@ from mujoco_py import load_model_from_path, MjSim, MjViewer
 # from gym_kuka_mujoco.utils.kinematics import forwardKin, forwardKinJacobian, forwardKinSite, forwardKinJacobianSite
 import mujoco_py
 import numpy as np
+import copy
 from controllers_utils import CtrlUtils, TrajectoryOperational, TrajectoryJoint, TrajectoryProfile, CtrlType
 
 def load_model_mujoco(simulate, use_gravity):
@@ -79,9 +80,12 @@ if __name__ == '__main__':
     # TODO: Operational space control
     k = 0
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
-    trajectory2 = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(sim.data.get_site_xpos(ctrl.name_tcp), sim.data.get_site_xmat(ctrl.name_tcp)), traj_profile=TrajectoryProfile.SPLINE3)
+    xd = sim.data.get_site_xpos(ctrl.name_tcp)
+    xd_mat = sim.data.get_site_xmat(ctrl.name_tcp)
+    trajectory2 = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(xd, xd_mat), traj_profile=TrajectoryProfile.SPLINE3)
     ctrl.kp = 50
     ctrl.get_pd_matrices()
+    ctrl.q_nullspace = copy.deepcopy(sim.data.qpos)
     while True:
         kinematics = trajectory2.next()
         ctrl.calculate_errors(sim, k, kin=kinematics)
