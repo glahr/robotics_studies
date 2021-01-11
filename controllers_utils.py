@@ -18,13 +18,15 @@ class CtrlType(Enum):
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type):
+    def __init__(self, sim_handle, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type,
+                 lambda_H=10.5, kp=20):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
         self.use_gravity = use_gravity
         self.plot_2d = plot_2d
         self.mass_links = self.sim.model.body_mass[4:11]
         self.name_bodies = [self.sim.model.body_id2name(i) for i in range(4, 11)]
+        self.xpos_kuka_base = self.sim.data.get_body_xpos('kuka_base')
         self.name_tcp = self.sim.model.site_id2name(1)
         self.name_ft_sensor = self.sim.model.site_id2name(2)
 
@@ -34,6 +36,7 @@ class CtrlUtils:
         self.H = np.zeros(self.sim.model.nv * self.sim.model.nv)  # inertia matrix
         self.C = np.zeros((7,))  # Coriolis vector
         self.qd = np.zeros((self.sim.model.nv,))
+        self.xd = np.zeros(3)
 
         self.controller_type = controller_type
 
@@ -47,6 +50,8 @@ class CtrlUtils:
             self.error_qvel = 0
             self.error_q_int_ant = 0
             self.error_q_ant = 0
+            self.last_qpos = np.zeros(sim_handle.model.nv)
+            self.qpos_int = np.zeros(sim_handle.model.nv)
 
         if True: #controller_type == 'inverse_dynamics_operational_space':
             self.x_ref = np.zeros((self.n_timesteps, 3))
@@ -76,8 +81,8 @@ class CtrlUtils:
         self.J_ant = None
         self.use_kd = use_kd
         self.use_ki = use_ki
-        self.lambda_H = 0
-        self.kp = 0
+        self.lambda_H = lambda_H
+        self.kp = kp
 
     def ctrl_independent_joints(self):
         error_q_int = (self.error_q + self.error_q_ant) * self.dt / 2 + self.error_q_int_ant
@@ -133,14 +138,20 @@ class CtrlUtils:
         # Txd = smath.SE3(xd)
         # Txd.R[:] = xd_mat
         # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
-        tau0 = 50*(self.q_nullspace - sim.data.qpos)
+        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 10*self.tau_g(sim)
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
         # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
-        # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv.dot(J))) - H_op_space.dot(J.dot(J_inv.dot(J)))
+        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(sim.data.qvel))
+        # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
+
+        # OK: Khatib
         C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
+
+        # OK: Handbook
+        # C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
 
         # angle
         # quat_ref = np.zeros((4,))
@@ -182,6 +193,12 @@ class CtrlUtils:
         C = self.get_coriolis_vector(sim)
 
         v_ = qacc_ref + np.dot(self.Kd, self.error_qvel) + np.dot(self.Kp, self.error_q)
+
+        if self.use_ki:
+            error_int = (self.error_q - self.error_q_ant)*self.dt/2 + self.error_q_int_ant
+            v_ += self.Ki.dot(error_int)
+            self.error_q_ant = self.error_q
+            self.error_q_int_ant = error_int
 
         tau = np.dot(H, v_) + C
 
@@ -366,22 +383,54 @@ class CtrlUtils:
         return q_next
 
     def move_to_joint_pos(self, qd, sim, viewer=None):
+        self.qd = qd
         trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
         # NAO EDITAR
-        eps = 5 * np.pi / 180
+        eps = 3 * np.pi / 180
         k = 1
 
         while True:
-
-            if (np.absolute(self.error_q) < eps).all() and sim.data.time > 1:
-                return
-                # qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
+            # qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
             # print("tolerancia " + str(sim.data.time))
 
             qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
+
+            if (np.absolute(self.qd - sim.data.qpos) < eps).all():
+                return
+
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
             sim.data.ctrl[:] = u
+            self.step(sim, k)
+            # sim.step()
+            if viewer is not None:
+                viewer.render()
+            k += 1
+            if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+                return
+
+    def move_to_point(self, xd, xd_mat, sim, viewer=None):
+        self.xd = xd
+        x_act = sim.data.get_site_xpos(self.name_tcp)
+        k = 0
+        # xd[0] -= 0.2
+        x_act_mat = sim.data.get_site_xmat(self.name_tcp)
+        trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(x_act, x_act_mat),
+                                           traj_profile=TrajectoryProfile.SPLINE3)
+        self.kp = 50
+        self.get_pd_matrices()
+        eps = 0.003
+        while True:
+            kinematics = trajectory.next()
+            self.calculate_errors(sim, k, kin=kinematics)
+
+            if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
+                return
+
+            u = self.ctrl_action(sim, k, xacc_ref=kinematics[2],
+                                 alpha_ref=kinematics[5])  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+            sim.data.ctrl[:] = u
+            # ctrl.q_nullspace = ctrl.inv_kinematics(sim)
             self.step(sim, k)
             # sim.step()
             if viewer is not None:

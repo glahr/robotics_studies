@@ -23,7 +23,7 @@ if __name__ == '__main__':
     use_gravity = True
     plot_2d = True
     use_kd = True
-    use_ki = True
+    use_ki = False
     simulation_time = 10  # s
 
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
@@ -36,24 +36,31 @@ if __name__ == '__main__':
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     qd2 = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
 
+    #TODO: take type definition from this stage
+
     # controller_type = CtrlType.INDEP_JOINTS
     controller_type = CtrlType.INV_DYNAMICS
     # controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
     sim, viewer = load_model_mujoco(simulate, use_gravity)
-    sim.forward()
+    sim.step()
     ctrl = CtrlUtils(sim, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type)
     # trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
     # trajectory.__next__()
     # trajectory.__str__()
     # str(trajectory)
-    ctrl.kp = 20
-    ctrl.qd = qd
+    # ctrl.kp = 20
+    # ctrl.qd = qd
     # ctrl.kp = 11
-    ctrl.lambda_H = 3.5
-    tf = 2  # spline final time
+    # ctrl.lambda_H = 3.5
+    # tf = 2  # spline final time
 
     ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+    # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
+    # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+    # qd = np.array([0, 0.1, 0, -0.6, 0, 0.13, 0])
+    # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+
 
     # # TODO: just to leave singularity position
     # while True:
@@ -77,31 +84,39 @@ if __name__ == '__main__':
 
     # TODO: Operational space control
 
-    k = 0
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
-    xd = sim.data.get_site_xpos(ctrl.name_tcp)
-    # xd[1] -= 0.1
-    xd_mat = sim.data.get_site_xmat(ctrl.name_tcp)
-    trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(xd, xd_mat), traj_profile=TrajectoryProfile.SPLINE3)
-    ctrl.kp = 50
-    ctrl.get_pd_matrices()
-    ctrl.q_nullspace = copy.deepcopy(sim.data.qpos)
-    while True:
-        kinematics = trajectory.next()
-        ctrl.calculate_errors(sim, k, kin=kinematics)
-        u = ctrl.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
-        sim.data.ctrl[:] = u
-        ctrl.q_nullspace = ctrl.inv_kinematics(sim)
-        ctrl.step(sim, k)
-        # sim.step()
-        if simulate:
-            viewer.render()
-        k += 1
-        if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
-            break
+
+    xd[2] -= 0.2
+    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+    xd[1] -= 0.2
+    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+    xd[0] -= 0.2
+    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+
+
+    # xd = sim.data.get_site_xpos(ctrl.name_tcp)
+    # # xd[0] -= 0.2
+    # xd_mat = sim.data.get_site_xmat(ctrl.name_tcp)
+    # trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(xd, xd_mat), traj_profile=TrajectoryProfile.SPLINE3)
+    # ctrl.kp = 50
+    # ctrl.get_pd_matrices()
+    # ctrl.q_nullspace = copy.deepcopy(sim.data.qpos)
+    # while True:
+    #     kinematics = trajectory.next()
+    #     ctrl.calculate_errors(sim, k, kin=kinematics)
+    #     u = ctrl.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+    #     sim.data.ctrl[:] = u
+    #     # ctrl.q_nullspace = ctrl.inv_kinematics(sim)
+    #     ctrl.step(sim, k)
+    #     # sim.step()
+    #     if simulate:
+    #         viewer.render()
+    #     k += 1
+    #     if k >= ctrl.n_timesteps:  # and os.getenv('TESTING') is not None:
+    #         break
 
     if plot_2d:
         ctrl.plots()
 
-    print(trajectory.extra_points)
+    # print(trajectory.extra_points)
     # print("biggest element = ", max_diag_element)
