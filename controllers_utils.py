@@ -84,7 +84,7 @@ class CtrlUtils:
         self.error_q_int_ant = error_q_int
         return self.Kp.dot(self.error_q) + self.Kd.dot(self.error_qvel) + self.Ki.dot(error_q_int)
 
-    def ctrl_inverse_dynamics_operational_space(self, sim, k):
+    def ctrl_inverse_dynamics_operational_space(self, sim, k, xacc_ref, alpha_ref):
         H = self.get_inertia_matrix(sim)
         H_inv = np.linalg.inv(H)
         C = self.get_coriolis_vector(sim)
@@ -133,7 +133,7 @@ class CtrlUtils:
         # Txd = smath.SE3(xd)
         # Txd.R[:] = xd_mat
         # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
-        tau0 = 20*(self.q_nullspace - sim.data.qpos)
+        tau0 = 50*(self.q_nullspace - sim.data.qpos)
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
 
@@ -156,7 +156,7 @@ class CtrlUtils:
         # erro_vel_quat = quat_vel_ref
         # mujoco_py.functions.mju_subQuat(erro_quat, qa, qb)
 
-        v_ = np.concatenate((self.xacc_ref[k], np.zeros(3, ))) +\
+        v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              np.dot(self.Kd, np.concatenate((self.error_xvel, self.error_rvel))) +\
              np.dot(self.Kp, np.concatenate((self.error_x, self.error_r)))
 
@@ -203,7 +203,7 @@ class CtrlUtils:
         if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
             if self.Kp is None:
                 self.get_pd_matrices()
-            u = self.ctrl_inverse_dynamics_operational_space(sim, k)
+            u = self.ctrl_inverse_dynamics_operational_space(sim, k, xacc_ref=xacc_ref, alpha_ref=alpha_ref)
 
         return u
 
@@ -219,7 +219,7 @@ class CtrlUtils:
             mujoco_py.functions.mju_subQuat(self.error_r, quat_ref, quat_act)
             J = self.get_jacobian_site(sim)
             w_act = J.dot(sim.data.qvel)[3:]
-            self.error_rvel = w_ref[:3] - w_act
+            self.error_rvel = w_ref - w_act
         else:
             qpos = sim.data.qpos
             qvel = sim.data.qvel
@@ -357,7 +357,38 @@ class CtrlUtils:
         mujoco_py.functions.mju_mat2Quat(xquat, xmat.flatten())
         return xquat
 
+    def inv_kinematics(self, sim):
+        q_act = sim.data.qpos
+        J = self.get_jacobian_site(sim)
+        J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
+        v_tcp = np.concatenate((sim.data.get_site_xvelp(self.name_tcp), sim.data.get_site_xvelr(self.name_tcp)))
+        q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
+        return q_next
 
+    def move_to_joint_pos(self, qd, sim, viewer=None):
+        trajectory = TrajectoryJoint(qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
+        # NAO EDITAR
+        eps = 5 * np.pi / 180
+        k = 1
+
+        while True:
+
+            if (np.absolute(self.error_q) < eps).all() and sim.data.time > 1:
+                return
+                # qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
+            # print("tolerancia " + str(sim.data.time))
+
+            qpos_ref, qvel_ref, qacc_ref = trajectory.next()
+            self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
+            u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+            sim.data.ctrl[:] = u
+            self.step(sim, k)
+            # sim.step()
+            if viewer is not None:
+                viewer.render()
+            k += 1
+            if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+                return
 
 
 
@@ -500,7 +531,7 @@ class TrajectoryOperational(TrajGen):
                 w_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffsW)
                 alpha_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffsW)
 
-                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
+                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]
 
 
         # if traj_profile == TrajectoryProfile.SPLINE5:
@@ -528,4 +559,4 @@ class TrajectoryOperational(TrajGen):
         # print("end")
         while True:
             self.extra_points = self.extra_points + 1
-            yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
+            yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]  #TODO: returning first 3 values? study quaternion kinem.
