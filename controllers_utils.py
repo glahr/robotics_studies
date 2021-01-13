@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import roboticstoolbox as rtb
 import spatialmath as smath
 from enum import Enum, auto
+from copy import deepcopy
 
 class TrajectoryProfile(Enum):
     SPLINE3 = auto()
@@ -69,7 +70,6 @@ class CtrlUtils:
             self.x_log = np.zeros((self.n_timesteps, 3))
             self.r_log = np.zeros((self.n_timesteps, 4))
             self.error_x_ant = 0
-            self.robot_rtb = rtb.models.DH.LWR4()
             self.q_nullspace = 0
 
 
@@ -83,6 +83,8 @@ class CtrlUtils:
         self.use_ki = use_ki
         self.lambda_H = lambda_H
         self.kp = kp
+
+        self.iiwa_kin = KinematicsIiwa()
 
     def ctrl_independent_joints(self):
         error_q_int = (self.error_q + self.error_q_ant) * self.dt / 2 + self.error_q_int_ant
@@ -138,7 +140,7 @@ class CtrlUtils:
         # Txd = smath.SE3(xd)
         # Txd.R[:] = xd_mat
         # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
-        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 50*self.tau_g(sim)
+        tau0 = 50*(self.q_nullspace - sim.data.qpos) + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
@@ -404,12 +406,16 @@ class CtrlUtils:
         x_act = sim.data.get_site_xpos(self.name_tcp)
         k = 0
         # xd[0] -= 0.2
+        # xd = xd -
         x_act_mat = sim.data.get_site_xmat(self.name_tcp)
-        trajectory = TrajectoryOperational((xd, xd_mat), ti=sim.data.time, pose_act=(x_act, x_act_mat),
-                                           traj_profile=TrajectoryProfile.SPLINE3)
+        trajectory = TrajectoryOperational((xd - sim.data.get_body_xpos('kuka_base'), xd_mat), ti=sim.data.time,
+                                           pose_act=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
         self.kp = 50
         self.get_pd_matrices()
         eps = 0.003
+
+        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd, xd_mat, q0=sim.data.qpos)
+
         while True:
             kinematics = trajectory.next()
             self.calculate_errors(sim, k, kin=kinematics)
@@ -599,3 +605,23 @@ class TrajectoryOperational(TrajGen):
         while True:
             self.extra_points = self.extra_points + 1
             yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]  #TODO: returning first 3 values? study quaternion kinem.
+
+class KinematicsIiwa:
+    def __init__(self):
+        self.iiwa = rtb.models.DH.LWR4()
+        # correcting DH params
+        self.iiwa.links[2].d = 0.42
+        self.iiwa.links[4].d = 0.4
+        # correcting tool params
+        self.iiwa.tool.R[:] = np.eye(3)  # TODO: change tool length
+        self.iiwa.tool.t[2] = 0.159 + 0.126 - 0.04498
+        # correcting base params
+        T_new = self.iiwa.base
+        T_new.t[2] = 0.36
+        T_new.R[:] = smath.SO3.Rz(np.pi) * T_new.R
+        self.iiwa.base = T_new
+
+    def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
+        Td = smath.SE3(xd) * smath.SE3.OA(xdmat[:, 1], xdmat[:, 2])
+        qd = self.iiwa.ikine(Td, q0=q0.reshape(1,7))[0]
+        return qd
