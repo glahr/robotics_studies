@@ -28,10 +28,10 @@ if __name__ == '__main__':
 
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # xd = np.array([0.1, 0, 1.7])
-    xd = np.array([9.92705091e-01, - 2.50066075e-04,  1.76208494e+00])
-    xd_mat = np.array([[3.72030973e-01, -1.52734025e-03,  9.28219059e-01],
-                       [-1.06081268e-03, -9.99998693e-01, -1.22027561e-03],
-                       [9.28219710e-01, -5.30686220e-04, -3.72032107e-01]])
+    xd = np.array([7.91954831e-01, -1.56225542e-05,  1.78926928e+00])
+    xd_mat = np.array([[ 3.10728547e-01, -8.31370781e-04,  9.50498332e-01],
+                       [-2.43614713e-03, -9.99997030e-01, -7.82619487e-05],
+                       [ 9.50495573e-01, -2.29123556e-03, -3.10729650e-01]])
     # rd =
     # qd = np.array([0, 0, 0, 0, 0, 0, 0])
     qd2 = np.array([0, 0, 0, -np.pi/2, -np.pi/2, 0, 0])
@@ -62,7 +62,6 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
 
 
-    # # TODO: just to leave singularity position
     # while True:
     #
     #     if (np.absolute(ctrl.error_q) < eps).all() and sim.data.time > 1:
@@ -86,12 +85,12 @@ if __name__ == '__main__':
 
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
-    xd[2] -= 0.2
-    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
-    xd[1] -= 0.2
-    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
     xd[0] -= 0.2
     ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+    # xd[1] -= 0.2
+    # ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+    # xd[2] -= 0.2
+    # ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
 
 
     # xd = sim.data.get_site_xpos(ctrl.name_tcp)

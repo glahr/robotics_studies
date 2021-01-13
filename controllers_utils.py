@@ -138,9 +138,8 @@ class CtrlUtils:
         # Txd = smath.SE3(xd)
         # Txd.R[:] = xd_mat
         # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
-        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 10*self.tau_g(sim)
+        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 50*self.tau_g(sim)
         tau_null_space = projection_matrix_null_space.dot(tau0)
-
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
         # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
@@ -148,19 +147,10 @@ class CtrlUtils:
         # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
 
         # OK: Khatib
-        C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
+        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
 
         # OK: Handbook
-        # C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
-
-        # angle
-        # quat_ref = np.zeros((4,))
-        # quat_act = np.zeros((4,))
-        # quat_vel_ref = np.zeros((3,))
-        # quat_acc_ref = np.zeros((3,))
-
-        # mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
-        # mujoco_py.functions.mju_mat2Quat(quat_act, sim.data.get_site_xmat(self.name_tcp).flatten())
+        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
 
         # erro_quat = np.zeros((3,))
         # mujoco_py.functions.mju_subQuat(erro_quat, quat_ref, quat_act)
@@ -180,11 +170,11 @@ class CtrlUtils:
 
         tau = np.dot(J.T, f)
 
-        tau_max = 50
-
-        if (np.absolute(tau) > tau_max).all():
-            for i, tau_i in enumerate(tau):
-                tau[i] = np.sign(tau_i) * tau_max
+        # tau_max = 50
+        #
+        # if (np.absolute(tau) > tau_max).all():
+        #     for i, tau_i in enumerate(tau):
+        #         tau[i] = np.sign(tau_i) * tau_max
 
         return tau + tau_null_space
 
