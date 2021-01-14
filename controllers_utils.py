@@ -396,25 +396,28 @@ class CtrlUtils:
             self.step(sim, k)
             # sim.step()
             if viewer is not None:
+                xd = sim.data.get_site_xpos(self.name_tcp)
+                xdmat = sim.data.get_site_xmat(self.name_tcp)
+                self.render_frame(viewer, xd, xdmat)
                 viewer.render()
             k += 1
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 return
 
-    def move_to_point(self, xd, xd_mat, sim, viewer=None):
+    def move_to_point(self, xd, xdmat, sim, viewer=None):
         self.xd = xd
         x_act = sim.data.get_site_xpos(self.name_tcp)
         k = 0
         # xd[0] -= 0.2
         # xd = xd -
         x_act_mat = sim.data.get_site_xmat(self.name_tcp)
-        trajectory = TrajectoryOperational((xd - sim.data.get_body_xpos('kuka_base'), xd_mat), ti=sim.data.time,
+        trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
                                            pose_act=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
         self.kp = 50
         self.get_pd_matrices()
         eps = 0.003
 
-        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd, xd_mat, q0=sim.data.qpos)
+        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)[0]
 
         while True:
             kinematics = trajectory.next()
@@ -430,10 +433,33 @@ class CtrlUtils:
             self.step(sim, k)
             # sim.step()
             if viewer is not None:
+                self.render_frame(viewer, xd, xdmat)
                 viewer.render()
             k += 1
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 return
+
+    def render_frame(self, viewer, pos, mat):
+        viewer.add_marker(pos=pos,
+                          label='',
+                          type=mujoco_py.generated.const.GEOM_SPHERE,
+                          size=[.01, .01, .01])
+        cylinder_half_height = 0.02
+        pos_cylinder = pos + mat.dot([0.0, 0.0, cylinder_half_height])
+        viewer.add_marker(pos=pos_cylinder,
+                          label='',
+                          type=mujoco_py.generated.const.GEOM_CYLINDER,
+                          size=[.005, .005, cylinder_half_height],
+                          mat=mat)
+
+    def quat2Mat(self, quat):
+        '''
+        Convenience function for mju_quat2Mat.
+        '''
+        res = np.zeros(9)
+        mujoco_py.functions.mju_quat2Mat(res, quat)
+        res = res.reshape(3, 3)
+        return res
 
 
 
@@ -623,5 +649,5 @@ class KinematicsIiwa:
 
     def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
         Td = smath.SE3(xd) * smath.SE3.OA(xdmat[:, 1], xdmat[:, 2])
-        qd = self.iiwa.ikine(Td, q0=q0.reshape(1,7))[0]
+        qd = self.iiwa.ikine(Td, q0=q0.reshape(1,7))
         return qd
