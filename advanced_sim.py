@@ -23,15 +23,15 @@ if __name__ == '__main__':
     use_gravity = True
     plot_2d = True
     use_kd = True
-    use_ki = False
+    use_ki = True
     simulation_time = 10  # s
 
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # xd = np.array([0.1, 0, 1.7])
-    xd = np.array([7.91954831e-01, -1.56225542e-05,  1.78926928e+00])
-    xd_mat = np.array([[ 3.10728547e-01, -8.31370781e-04,  9.50498332e-01],
-                       [-2.43614713e-03, -9.99997030e-01, -7.82619487e-05],
-                       [ 9.50495573e-01, -2.29123556e-03, -3.10729650e-01]])
+    # xd = np.array([7.91954831e-01, -1.56225542e-05,  1.78926928e+00])
+    # xd_mat = np.array([[ 3.10728547e-01, -8.31370781e-04,  9.50498332e-01],
+    #                    [-2.43614713e-03, -9.99997030e-01, -7.82619487e-05],
+    #                    [ 9.50495573e-01, -2.29123556e-03, -3.10729650e-01]])
 
     #TODO: take type definition from this stage
 
@@ -53,9 +53,20 @@ if __name__ == '__main__':
     # tf = 2  # spline final time
 
 
-    qd = np.array([ 5.40407988e-19,  4.61000000e-01, -1.05586330e-18, -8.17000000e-01, 8.72502239e-19,  6.90000000e-01, -3.96547266e-19])
-    qd2 = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
-    ctrl.move_to_joint_pos(qd2, sim, viewer=viewer)
+    # qd = np.array([ 5.40407988e-19,  4.61000000e-01, -1.05586330e-18, -8.17000000e-01, 8.72502239e-19,  6.90000000e-01, -3.96547266e-19])
+    qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
+    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+    xd, xdmat = ctrl.get_site_pose(sim)
+
+    xd[0] -= 0.05
+    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    xd[1] += 0.05
+    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    xd[0] += 0.05
+    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    xd[1] -= 0.05
+    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
@@ -92,12 +103,16 @@ if __name__ == '__main__':
 
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
-    # xd[0] -= 0.2
-    # ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
-    xd[0] -= 0.02
-    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
-    xd[2] -= 0.02
-    ctrl.move_to_point(xd, xd_mat, sim, viewer=viewer)
+    xd, xdmat = ctrl.get_site_pose(sim)
+
+    xd[0] -= 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[1] += 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[0] += 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[1] -= 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
 
 
     # xd = sim.data.get_site_xpos(ctrl.name_tcp)
