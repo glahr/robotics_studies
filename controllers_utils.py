@@ -296,6 +296,8 @@ class CtrlUtils:
             Ki = np.eye(n_space)
             for i in range(n_space):
                 Ki[i, i] = Kp[i, i] * Kd[i, i] / self.lambda_H ** 2
+                if i == 6:
+                    Ki[i, i] = Kp[i, i] * Kd[i, i] / self.lambda_H
         else:
             Ki = np.zeros((n_space, n_space))
         self.Kp = Kp
