@@ -25,7 +25,7 @@ Even though it suggest to add ```LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/$USER/.m
 
 The solution is to add it to into ``` Edit configurations->Environment Variables``` click on ```+``` and then on the left panel add ```LD_LIBRARY_PATH```, on the left ```$LD_LIBRARY_PATH:/home/$USER/.mujoco/mujoco200/bin```.
 
-## Developers
-Gustavo Lahr - glahr
+## Contributors and FAQ
+Gustavo Lahr - glahr - gustavo.lahr@usp.br
 
 Henrique Garcia - griloHBG
