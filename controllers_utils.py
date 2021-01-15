@@ -15,6 +15,7 @@ class CtrlType(Enum):
     INDEP_JOINTS = auto()
     INV_DYNAMICS = auto()
     INV_DYNAMICS_OP_SPACE = auto()
+    IMPEDANCE = auto()
 
 class CtrlUtils:
 

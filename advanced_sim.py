@@ -19,7 +19,7 @@ def load_model_mujoco(simulate, use_gravity):
 if __name__ == '__main__':
 
     show_simulation = True # If True, plot the 3D simulation at runtime.
-    use_gravity = True  # If False, loads the model without gravity.
+    use_gravity = False  # If False, loads the model without gravity.
     plot_2d = True  # Show 2D plots at the end. But still need to fix after all new features.
     use_kd = True  # If True, use PD feedback. If False, just P.
     use_ki = True  # If True use a PID feedback. If False, just PD.
@@ -37,10 +37,16 @@ if __name__ == '__main__':
 
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
+    # POSITIONING
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd[5] += np.pi/2
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+
+    # IMPEDANCE CONTROL
+    ctrl.use_ki = False
+    ctrl.controller_type = CtrlType.INDEP_JOINTS
     qd[0] += -np.pi / 2
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
