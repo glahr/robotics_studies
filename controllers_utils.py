@@ -16,7 +16,6 @@ class CtrlType(Enum):
     INV_DYNAMICS = auto()
     INV_DYNAMICS_OP_SPACE = auto()
 
-
 class CtrlUtils:
 
     def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
@@ -101,11 +100,6 @@ class CtrlUtils:
 
         J = self.get_jacobian_site(sim)
 
-        # J = np.vstack((jacp, jacr))
-        # T = np.array(np.bmat([[np.eye(3), np.zeros((3, 3))], [np.zeros((3, 3)), sim.data.get_site_xmat(self.name_tcp)]]))
-        # Jt = T.dot(J)
-        # J = Jt
-
         if self.J_ant is None:
             self.J_ant = np.zeros(J.shape)
             J_dot = np.zeros(J.shape)
@@ -114,7 +108,6 @@ class CtrlUtils:
 
         J_inv = np.linalg.pinv(J)
         # Jt_inv = J_inv.T
-
 
         # equations from Robotics Handbook chapter 3, section 3.3
         H_op_space = np.linalg.inv(np.dot(J, np.dot(H_inv, J.T)))
@@ -134,16 +127,8 @@ class CtrlUtils:
 
 
         # NULL SPACE
-        # xd_mat = np.array([[3.72030973e-01, -1.52734025e-03, 9.28219059e-01],
-        #                    [-1.06081268e-03, -9.99998693e-01, -1.22027561e-03],
-        #                    [9.28219710e-01, -5.30686220e-04, -3.72032107e-01]])
-        # xd = np.array([9.92705091e-01, - 2.50066075e-04, 1.76208494e+00])
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        # T_fkine = np.array(np.bmat([[np.bmat([xd_mat, xd.reshape(3, 1)])], [np.bmat([np.bmat([np.zeros(3,), [1]])])]]))
-        # Txd = smath.SE3(xd)
-        # Txd.R[:] = xd_mat
-        # qd = self.robot_rtb.ikine(Txd, q0=sim.data.qpos)
         tau0 = 50*(self.q_nullspace - sim.data.qpos) + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
@@ -158,28 +143,19 @@ class CtrlUtils:
         # OK: Handbook
         C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
 
-        # erro_quat = np.zeros((3,))
-        # mujoco_py.functions.mju_subQuat(erro_quat, quat_ref, quat_act)
-        # erro_vel_quat = quat_vel_ref
-        # mujoco_py.functions.mju_subQuat(erro_quat, qa, qb)
-
         v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              self.Kd.dot(np.concatenate((self.error_xvel, self.error_rvel))) +\
              self.Kp.dot(np.concatenate((self.error_x, self.error_r)))
 
+        # TODO: implement integrative control action for operational space
         # if self.use_ki:
-
-
-        # erro_euler = self.get_euler_from_quat(erro_quat)
-        # r_ = erro_euler*0 + self.Kp.dot(erro_euler) + self.Kd.dot(erro_euler*0)
-        # r_ = quat_ref + self.Kd.dot(self.)
 
         f = np.dot(H_op_space, v_) + C_op_space
 
         tau = np.dot(J.T, f)
 
+        # joint torque limiting if needed
         # tau_max = 50
-        #
         # if (np.absolute(tau) > tau_max).all():
         #     for i, tau_i in enumerate(tau):
         #         tau[i] = np.sign(tau_i) * tau_max
@@ -237,7 +213,6 @@ class CtrlUtils:
             x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref = kin
             xpos = sim.data.get_site_xpos(self.name_tcp)
             xvel = sim.data.get_site_xvelp(self.name_tcp)
-            # self.error_x = self.x_ref[k] - xpos
             self.error_x = x_ref[:3] - xpos
             self.error_xvel = xvel_ref[:3] - xvel
             quat_act = self.get_site_quat_from_mat(sim, self.name_tcp)
@@ -361,7 +336,6 @@ class CtrlUtils:
         jacp  = sim.data.get_site_jacp(self.name_tcp).reshape(Jp_shape)
         jacr  = sim.data.get_site_jacr(self.name_tcp).reshape(Jp_shape)
         return np.vstack((jacp, jacr))
-        # return jacp, jacr
 
     def get_euler_angles(self, sim=None, mat=None):
         if sim is not None:
@@ -384,48 +358,42 @@ class CtrlUtils:
         mujoco_py.functions.mju_mat2Quat(xquat, xmat.flatten())
         return xquat
 
-    def inv_kinematics(self, sim):
-        q_act = sim.data.qpos
-        J = self.get_jacobian_site(sim)
-        J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
-        v_tcp = np.concatenate((sim.data.get_site_xvelp(self.name_tcp), sim.data.get_site_xvelr(self.name_tcp)))
-        q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
-        return q_next
+    # def inv_kinematics(self, sim):
+    #     q_act = sim.data.qpos
+    #     J = self.get_jacobian_site(sim)
+    #     J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
+    #     v_tcp = np.concatenate((sim.data.get_site_xvelp(self.name_tcp), sim.data.get_site_xvelr(self.name_tcp)))
+    #     q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
+    #     return q_next
 
-    def move_to_joint_pos(self, sim, xd=None, xdmat=None, qd=None, viewer=None):
+    def move_to_joint_pos(self, sim, xd=None, xdmat=None, qd=None, viewer=None, eps=1.5*np.pi/180):
         if qd is not None:
             self.qd = qd
         if xd is not None:
             self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
         self._clear_integral_variables()
         trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
-        # NAO EDITAR
-        eps = 1.5 * np.pi / 180
+
         k = 1
 
         while True:
-            # qd = np.array([0, 0, 3/2*np.pi/2, 0, 0, -np.pi/2, 0])
-            # print("tolerancia " + str(sim.data.time))
-
             qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
 
             if (np.absolute(self.qd - sim.data.qpos) < eps).all():
                 return
 
-            u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+            u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
             sim.data.ctrl[:] = u
             self.step(sim, k)
-            # sim.step()
             if viewer is not None:
-                # xd = sim.data.get_site_xpos(self.name_tcp)
-                # xdmat = sim.data.get_site_xmat(self.name_tcp)
                 if qd is not None:
                     xd, xdmat = self.iiwa_kin.fk_iiwa(qd)
                     xd += sim.data.get_body_xpos('kuka_base')
                 self.render_frame(viewer, xd, xdmat)
                 viewer.render()
             k += 1
+            # TODO: create other stopping criteria
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 return
 
@@ -433,8 +401,6 @@ class CtrlUtils:
         self.xd = xd
         x_act = sim.data.get_site_xpos(self.name_tcp)
         k = 0
-        # xd[0] -= 0.2
-        # xd = xd -
         x_act_mat = sim.data.get_site_xmat(self.name_tcp)
         trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
                                            pose_act=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
@@ -448,15 +414,14 @@ class CtrlUtils:
             kinematics = trajectory.next()
             self.calculate_errors(sim, k, kin=kinematics)
 
+            # TODO: implement orientation error stopping criteria
             if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
                 return
 
             u = self.ctrl_action(sim, k, xacc_ref=kinematics[2],
-                                 alpha_ref=kinematics[5])  # , erro_q, erro_v, error_q_int_ant=error_q_int_ant)
+                                 alpha_ref=kinematics[5])
             sim.data.ctrl[:] = u
-            # ctrl.q_nullspace = ctrl.inv_kinematics(sim)
             self.step(sim, k)
-            # sim.step()
             if viewer is not None:
                 self.render_frame(viewer, xd, xdmat)
                 viewer.render()
@@ -490,7 +455,6 @@ class CtrlUtils:
         xd = deepcopy(sim.data.get_site_xpos(self.name_tcp))
         xmat = deepcopy(sim.data.get_site_xmat(self.name_tcp))
         return xd, xmat
-
 
 
 class TrajGen:
@@ -634,36 +598,13 @@ class TrajectoryOperational(TrajGen):
 
                 yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]
 
-
-        # if traj_profile == TrajectoryProfile.SPLINE5:
-        #     T = t_duration
-        #     x0 = pose_act[:3]
-        #     xvel0 = np.zeros((3,))
-        #     xacc0 = np.zeros((3,))
-        #     xf = xd
-        #     xvelf = np.zeros((3,))
-        #     xaccf = np.zeros((3,))
-        #     X = np.array([x0, xvel0, xacc0, xf, xvelf, xaccf])
-        #     A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
-        #                                     [0, 1, 0, 0, 0, 0],
-        #                                     [0, 0, 2, 0, 0, 0],
-        #                                     [1, T, T ** 2, T ** 3, T ** 4, T ** 5],
-        #                                     [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
-        #                                     [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
-        #     coeffs = np.dot(A_inv, X)
-        #     for i, t in enumerate(time_spline):
-        #         self.x_ref[i] = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
-        #                           coeffs)
-        #         self.xvel_ref[i] = np.dot(
-        #             np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2, 4 * (t - ti) ** 3, 5 * (t - ti) ** 4]), coeffs)
-        #         self.xacc_ref[i] = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
-        # print("end")
         while True:
             self.extra_points = self.extra_points + 1
             yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]  #TODO: returning first 3 values? study quaternion kinem.
 
 class KinematicsIiwa:
     def __init__(self):
+        # TODO: check all corrections, there are some mistakes, even though small
         self.iiwa = rtb.models.DH.LWR4()
         # correcting DH params
         self.iiwa.links[2].d = 0.42

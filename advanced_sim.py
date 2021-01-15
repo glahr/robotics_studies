@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 from mujoco_py import load_model_from_path, MjSim, MjViewer
-# from gym_kuka_mujoco.utils.kinematics import forwardKin, forwardKinJacobian, forwardKinSite, forwardKinJacobianSite
-import mujoco_py
 import numpy as np
-import copy
-from controllers_utils import CtrlUtils, TrajectoryOperational, TrajectoryJoint, TrajectoryProfile, CtrlType
+from controllers_utils import CtrlUtils, CtrlType
 
 def load_model_mujoco(simulate, use_gravity):
     model_name = "assets/full_kuka_all_joints"
@@ -56,12 +53,12 @@ if __name__ == '__main__':
 
     xd[0] -= 0.05
     ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
-    xd[1] += 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
-    xd[0] += 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
-    xd[1] -= 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[1] += 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[0] += 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[1] -= 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # Operational space control
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
@@ -69,12 +66,12 @@ if __name__ == '__main__':
     xd, xdmat = ctrl.get_site_pose(sim)
     xd[0] -= 0.05
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    xd[1] += 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    xd[0] += 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    xd[1] -= 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    # xd[1] += 0.05
+    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    # xd[0] += 0.05
+    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    # xd[1] -= 0.05
+    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
 
     if plot_2d:
         ctrl.plots()
