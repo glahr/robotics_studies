@@ -27,4 +27,5 @@ The solution is to add it to into ``` Edit configurations->Environment Variables
 
 ## Developers
 Gustavo Lahr - glahr
+
 Henrique Garcia - griloHBG
