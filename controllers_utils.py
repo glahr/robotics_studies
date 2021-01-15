@@ -19,8 +19,8 @@ class CtrlType(Enum):
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time, use_gravity, plot_2d, use_kd, use_ki, controller_type,
-                 lambda_H=5, kp=20):
+    def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
+                 use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
         self.use_gravity = use_gravity
