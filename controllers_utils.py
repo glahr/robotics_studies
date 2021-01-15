@@ -390,6 +390,9 @@ class CtrlUtils:
                 if qd is not None:
                     xd, xdmat = self.iiwa_kin.fk_iiwa(qd)
                     xd += sim.data.get_body_xpos('kuka_base')
+                else:
+                    t, R = self.iiwa_kin.fk_iiwa(self.qd)
+                    self.render_frame(viewer, t + sim.data.get_body_xpos('kuka_base'), R)
                 self.render_frame(viewer, xd, xdmat)
                 viewer.render()
             k += 1
@@ -617,10 +620,11 @@ class KinematicsIiwa:
         T_new.t[2] = 0.36
         T_new.R[:] = smath.SO3.Rz(np.pi) * T_new.R
         self.iiwa.base = T_new
+        self.q_lim = np.array([170, 120, 170, 120, 170, 120, 175])*np.pi/180
 
     def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
         Td = smath.SE3(xd) * smath.SE3.OA(xdmat[:, 1], xdmat[:, 2])
-        qd = self.iiwa.ikine(Td, q0=q0.reshape(1,7), ilimit=200)
+        qd = self.iiwa.ikinem(Td, q0=q0.reshape(1,7), ilimit=500, qlimits=True)
         return qd[0]
 
     def fk_iiwa(self, qd):

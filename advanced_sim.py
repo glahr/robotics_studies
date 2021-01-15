@@ -39,6 +39,21 @@ if __name__ == '__main__':
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+    xd, xdmat = ctrl.get_site_pose(sim)
+
+    for _ in range(10):
+        ctrl.controller_type = CtrlType.INV_DYNAMICS
+        q0 = np.zeros(7)
+        ctrl.move_to_joint_pos(sim, qd=q0, viewer=viewer)
+
+        # adjust this guy
+        qd = np.random.rand(7) - 0.5
+        ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+        ctrl.controller_type = CtrlType.INDEP_JOINTS
+        ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
     # qd = np.array([0, 0.1, 0, -0.6, 0, 0.13, 0])
