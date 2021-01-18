@@ -372,12 +372,15 @@ class CtrlUtils:
         if xd is not None:
             self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
         self._clear_integral_variables()
-        trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
+        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos,
+        #                              traj_profile=TrajectoryProfile.SPLINE3)
+        self.iiwa_kin.joint_traj_generate(self.qd, np.asarray(sim.data.qpos))
 
         k = 1
 
         while True:
-            qpos_ref, qvel_ref, qacc_ref = trajectory.next()
+            # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
+            qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.joint_traj_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
 
             if (np.absolute(self.qd - sim.data.qpos) < eps).all():
@@ -405,6 +408,7 @@ class CtrlUtils:
         x_act = sim.data.get_site_xpos(self.name_tcp)
         k = 0
         x_act_mat = sim.data.get_site_xmat(self.name_tcp)
+
         trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
                                            pose_act=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
         self.kp = 200
@@ -414,15 +418,15 @@ class CtrlUtils:
         self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)[0]
 
         while True:
-            kinematics = trajectory.next()
-            self.calculate_errors(sim, k, kin=kinematics)
+            x_traj = trajectory.next()
+            self.calculate_errors(sim, k, kin=x_traj)
 
             # TODO: implement orientation error stopping criteria
             if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
                 return
 
-            u = self.ctrl_action(sim, k, xacc_ref=kinematics[2],
-                                 alpha_ref=kinematics[5])
+            u = self.ctrl_action(sim, k, xacc_ref=x_traj[2],
+                                 alpha_ref=x_traj[5])
             sim.data.ctrl[:] = u
             self.step(sim, k)
             if viewer is not None:
@@ -530,6 +534,11 @@ class TrajectoryJoint(TrajGen):
                 qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti), 12 * (t - ti) ** 2, 20 * (t - ti) ** 3]), coeffs)
                 yield q_ref, qvel_ref, qacc_ref
 
+        if traj_profile is None:
+            q_ref = qd
+            qvel_ref = np.zeros(7)
+            qacc_ref = np.zeros(7)
+
         while True:
             self.extra_points = self.extra_points + 1
             yield q_ref, qvel_ref, qacc_ref
@@ -622,11 +631,30 @@ class KinematicsIiwa:
         self.iiwa.base = T_new
         self.q_lim = np.array([170, 120, 170, 120, 170, 120, 175])*np.pi/180
 
+        self.k = 0
+        self.q = None
+        self.qvel = None
+        self.qacc = None
+        self.n = 500
+
     def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
         Td = smath.SE3(xd) * smath.SE3.OA(xdmat[:, 1], xdmat[:, 2])
         qd = self.iiwa.ikinem(Td, q0=q0.reshape(1,7), ilimit=500, qlimits=True)
+        if not qd[1]:
+            print('paremos aqui')
+        if (np.absolute(self.iiwa.fkine(qd[0]).t - xd) > 0.05).all():
+            print("deu pau")
         return qd[0]
 
     def fk_iiwa(self, qd):
         fk = self.iiwa.fkine(qd)
         return fk.t, fk.R
+
+    def joint_traj_generate(self, qd, q0, t=2):
+        self.k = 0
+        _, self.q, self.qvel, self.qacc = rtb.trajectory.jtraj(q0=q0, qf=qd, tv=np.linspace(0, t, self.n))
+
+    def joint_traj_get_point(self):
+        if self.k < self.n:
+            self.k += 1
+        return self.q[self.k-1], self.qvel[self.k-1], self.qacc[self.k-1]

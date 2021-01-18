@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from mujoco_py import load_model_from_path, MjSim, MjViewer
 import numpy as np
+from numpy import pi
 from controllers_utils import CtrlUtils, CtrlType
 
 def load_model_mujoco(simulate, use_gravity):
@@ -15,6 +16,20 @@ def load_model_mujoco(simulate, use_gravity):
         viewer = None
     return sim, viewer
 
+def my_rand_pos():
+    # qd = np.random.rand(7) - 0.5
+    # qd = [(np.random.rand()-1.5)*1, np.random.rand(), (np.random.rand()-0.5)*4,
+    #       -np.pi/2 + (np.random.rand()-0.5)*3, (np.random.rand()-0.5)*3, np.pi / 2++ (np.random.rand()-0.5)*3, 0]
+    # qd = np.array([qi+np.random.rand() for qi in q])
+
+    if np.random.rand() < 0.5:
+        qd = np.array([pi/4, pi/2, pi/2, pi/2, pi/2, -pi/2, 0])
+    else:
+        qd = np.array([-pi/4, pi/2, pi/2, -pi/2, -pi/2, pi/2, 0])
+
+    qd = qd + np.array([np.random.rand()-0.5 for _ in range(7)])
+
+    return qd
 
 if __name__ == '__main__':
 
@@ -40,18 +55,20 @@ if __name__ == '__main__':
     qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
+    #
     xd, xdmat = ctrl.get_site_pose(sim)
-
+    # xd += [0.0, 0, -0.15]
+    #
     for _ in range(10):
-        ctrl.controller_type = CtrlType.INV_DYNAMICS
-        q0 = np.zeros(7)
-        ctrl.move_to_joint_pos(sim, qd=q0, viewer=viewer)
+        # ctrl.controller_type = CtrlType.INV_DYNAMICS
+        # q0 = np.zeros(7)
+        # ctrl.move_to_joint_pos(sim, qd=q0, viewer=viewer)
 
         # adjust this guy
-        qd = np.random.rand(7) - 0.5
+        qd = my_rand_pos()
         ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
-        ctrl.controller_type = CtrlType.INDEP_JOINTS
+        # ctrl.controller_type = CtrlType.INDEP_JOINTS
         ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
@@ -64,9 +81,10 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
 
     # Inverse dynamics in joint space with operational space
-    xd, xdmat = ctrl.get_site_pose(sim)
+    _, xdmat = ctrl.get_site_pose(sim)
+    xd = sim.data.get_body_xpos('kuka_base') + [0.5, 0, 0+0.05]
 
-    xd[0] -= 0.05
+    # xd[0] -= 0.05
     ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
@@ -76,11 +94,11 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # Operational space control
-    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    # ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
-    xd, xdmat = ctrl.get_site_pose(sim)
-    xd[0] -= 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    # xd, xdmat = ctrl.get_site_pose(sim)
+    # xd[0] -= 0.05
+    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     # xd[0] += 0.05
@@ -88,5 +106,5 @@ if __name__ == '__main__':
     # xd[1] -= 0.05
     # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
 
-    if plot_2d:
-        ctrl.plots()
+    # if plot_2d:
+    #     ctrl.plots()
