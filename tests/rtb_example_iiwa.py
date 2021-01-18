@@ -22,15 +22,9 @@ T_new.t[2] = 0.36
 T_new.R[:] = smath.SO3.Rz(np.pi) * T_new.R
 iiwa.base = T_new
 
-# links = [rtb.RevoluteDH(d=0.36)]
-#
-# for link in iiwa.links:
-#     links.append(link)
-#
-# new_robot = rtb.DHRobot(links)
+# iiwa.plot(np.zeros(7))
+# iiwa.plot(qd)
+# iiwa.plot(qd2)
 
-iiwa.plot(np.zeros(7))
-iiwa.plot(qd)
-iiwa.plot(qd2)
-
-# new_robot.plot(qd)
+q = np.array([np.pi/2, np.pi/2, np.pi/2, -np.pi/2, np.pi/2, np.pi/2, 0])
+iiwa.plot(q)

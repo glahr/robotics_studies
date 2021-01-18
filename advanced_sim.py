@@ -49,9 +49,12 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
 
     # Inverse dynamics in joint space with operational space
+    site_name = ctrl.name_tcp
+    # site_name = ctrl.name_hole_top
+    # xd, _ = ctrl.get_site_pose(sim, site_name=site_name)
+    # _, xdmat = ctrl.get_site_pose(sim)
     xd, xdmat = ctrl.get_site_pose(sim)
-
-    xd[0] -= 0.05
+    # xd[0] -= 0.05
     ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)

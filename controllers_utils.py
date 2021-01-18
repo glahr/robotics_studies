@@ -29,6 +29,7 @@ class CtrlUtils:
         self.xpos_kuka_base = self.sim.data.get_body_xpos('kuka_base')
         self.name_tcp = self.sim.model.site_id2name(1)
         self.name_ft_sensor = self.sim.model.site_id2name(2)
+        self.name_hole_top = self.sim.model.site_id2name(4)
 
         self.n_timesteps = int(simulation_time / self.dt)
 
@@ -451,9 +452,9 @@ class CtrlUtils:
         res = res.reshape(3, 3)
         return res
 
-    def get_site_pose(self, sim):
-        xd = deepcopy(sim.data.get_site_xpos(self.name_tcp))
-        xmat = deepcopy(sim.data.get_site_xmat(self.name_tcp))
+    def get_site_pose(self, sim, site_name='peg_tip'):
+        xd = deepcopy(sim.data.get_site_xpos(site_name))
+        xmat = deepcopy(sim.data.get_site_xmat(site_name))
         return xd, xmat
 
 
