@@ -19,7 +19,7 @@ def load_model_mujoco(simulate, use_gravity):
 if __name__ == '__main__':
 
     show_simulation = True # If True, plot the 3D simulation at runtime.
-    use_gravity = True  # If False, loads the model without gravity.
+    use_gravity = False  # If False, loads the model without gravity.
     plot_2d = True  # Show 2D plots at the end. But still need to fix after all new features.
     use_kd = True  # If True, use PD feedback. If False, just P.
     use_ki = True  # If True use a PID feedback. If False, just PD.
