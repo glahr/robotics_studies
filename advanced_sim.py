@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     show_simulation = True # If True, plot the 3D simulation at runtime.
     use_gravity = False  # If False, loads the model without gravity.
-    plot_2d = True  # Show 2D plots at the end. But still need to fix after all new features.
+    plot_2d = False  # Show 2D plots at the end. But still need to fix after all new features.
     use_kd = True  # If True, use PD feedback. If False, just P.
     use_ki = True  # If True use a PID feedback. If False, just PD.
     simulation_time = 10  # [s]. This is the maximum time the robot will wait at the same position.
@@ -37,8 +37,18 @@ if __name__ == '__main__':
 
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
-    qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
+    # POSITIONING
+    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    qd[5] += np.pi/2
+    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+
+    # IMPEDANCE CONTROL
+    #ctrl.use_ki = False
+    #ctrl.controller_type = CtrlType.INDEP_JOINTS
+    #qd[0] += -np.pi / 2
+    #ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
     # qd = np.array([0, 0.1, 0, -0.6, 0, 0.13, 0])
@@ -49,10 +59,10 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
 
     # Inverse dynamics in joint space with operational space
-    xd, xdmat = ctrl.get_site_pose(sim)
-
-    xd[0] -= 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd, xdmat = ctrl.get_site_pose(sim)
+    #
+    # xd[0] -= 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[0] += 0.05
@@ -61,11 +71,11 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # Operational space control
-    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
-
-    xd, xdmat = ctrl.get_site_pose(sim)
-    xd[0] -= 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    # ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    #
+    # xd, xdmat = ctrl.get_site_pose(sim)
+    # xd[0] -= 0.05
+    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     # xd[0] += 0.05
