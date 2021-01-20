@@ -20,11 +20,9 @@ if __name__ == '__main__':
 
     show_simulation = True # If True, plot the 3D simulation at runtime.
     use_gravity = False  # If False, loads the model without gravity.
-<<<<<<< HEAD
-    plot_2d = True  # Show 2D plots at the end. But still need to fix after all new features.
-=======
+
     plot_2d = False  # Show 2D plots at the end. But still need to fix after all new features.
->>>>>>> main
+
     use_kd = True  # If True, use PD feedback. If False, just P.
     use_ki = True  # If True use a PID feedback. If False, just PD.
     simulation_time = 10  # [s]. This is the maximum time the robot will wait at the same position.
@@ -43,18 +41,6 @@ if __name__ == '__main__':
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # POSITIONING
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
-<<<<<<< HEAD
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-    qd[5] += np.pi/2
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-
-
-    # IMPEDANCE CONTROL
-    ctrl.use_ki = False
-    ctrl.controller_type = CtrlType.INDEP_JOINTS
-    qd[0] += -np.pi / 2
-=======
->>>>>>> main
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd[5] += np.pi/2
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
