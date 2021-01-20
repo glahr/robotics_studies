@@ -165,7 +165,9 @@ class CtrlUtils:
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
         H = self.get_inertia_matrix(sim)
-        C = self.get_coriolis_vector(sim)
+        C = self.get_coriolis_vector(sim)[0:7]
+        #print(H.shape)
+        #print(C.shape)
 
         v_ = qacc_ref + self.Kd.dot(self.error_qvel) + self.Kp.dot(self.error_q)
 
@@ -222,8 +224,8 @@ class CtrlUtils:
             w_act = J.dot(sim.data.qvel)[3:]
             self.error_rvel = w_ref - w_act
         else:
-            qpos = sim.data.qpos
-            qvel = sim.data.qvel
+            qpos = sim.data.qpos[0:7]
+            qvel = sim.data.qvel[0:7]
             self.error_q = qpos_ref - qpos
             self.error_qvel = qvel_ref - qvel
 
@@ -325,7 +327,8 @@ class CtrlUtils:
     def get_inertia_matrix(self, sim):
         # inertia matrix H
         mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
-        H_ = self.H.reshape(sim.model.nv, sim.model.nv)
+
+        H_ = self.H[0:49].reshape(7,7) # sim.model.nv
         return H_
 
     def get_coriolis_vector(self, sim):
@@ -373,7 +376,7 @@ class CtrlUtils:
         if xd is not None:
             self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
         self._clear_integral_variables()
-        trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
+        trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos[0:7], traj_profile=TrajectoryProfile.SPLINE3)
 
         k = 1
 
@@ -381,7 +384,7 @@ class CtrlUtils:
             qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
 
-            if (np.absolute(self.qd - sim.data.qpos) < eps).all():
+            if (np.absolute(self.qd - sim.data.qpos[0:7]) < eps).all():
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)

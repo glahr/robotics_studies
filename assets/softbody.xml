@@ -1,0 +1,96 @@
+<?xml version="1.0" ?>
+
+<mujoco>
+
+        <!--  -->
+        <body name="first" pos="0 0 0">
+            <composite prefix="one" type="box" count="4 4 4" spacing="0.04">
+<!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
+            </composite>
+
+            <body name="first.first" pos="0.128 0 0.128">
+                <composite prefix="two" type="box" count="4 4 4" spacing="0.04">
+    <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                    <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <geom type="capsule" size=".015 0.05" rgba="0 .5 0 1"/>
+                </composite>
+
+                <body name="first.first.first" pos="0.128 0 0">
+                    <composite prefix="four" type="box" count="4 4 4" spacing="0.04">
+        <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                        <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <geom type="capsule" size=".015 0.05" rgba="1 1 1 1"/>
+                    </composite>
+                </body>
+
+            </body>
+
+            <body name="first.second" pos="0 0 0.128">
+                <composite prefix="three" type="box" count="4 4 4" spacing="0.04">
+    <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                    <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <geom type="capsule" size=".015 0.05" rgba="1 0 1 1"/>
+                </composite>
+
+                <body name="bar" pos="-.1 0 -.128">
+                    <geom name="bar" type="capsule" size="0.02 0.3"/>
+                </body>
+
+                <body name="first.second.first" pos="0.064 0 0.128">
+                    <composite prefix="five" type="box" count="4 4 4" spacing="0.04">
+        <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                        <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <geom type="capsule" size=".015 0.05" rgba="0 0 1 1"/>
+                    </composite>
+
+                    <body name="first.second.first.first" pos="0.128 0 0">
+                        <composite prefix="six" type="box" count="4 4 4" spacing="0.04">
+            <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                            <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                            <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                            <geom type="capsule" size=".015 0.05" rgba="1 1 0 1"/>
+                        </composite>
+                    </body>
+
+                </body>
+
+            </body>
+
+            <body name="first.third" pos="0 0 -0.128">
+                    <composite prefix="seven" type="box" count="4 4 4" spacing="0.04">
+        <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                        <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <geom type="capsule" size=".015 0.05" rgba="0 0 0 1"/>
+                    </composite>
+
+                    <body name="first.third.first" pos="0.064 0 -0.128">
+                    <composite prefix="eight" type="box" count="4 4 4" spacing="0.04">
+        <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                        <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                        <geom type="capsule" size=".015 0.05" rgba="0.5 0.5 0.5 1"/>
+                    </composite>
+                    </body>
+
+            </body>
+
+            <body name="first.fourth" pos="0.128 0 0">
+                <composite prefix="nine" type="box" count="4 4 4" spacing="0.04">
+    <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
+                    <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>
+                    <geom type="capsule" size=".015 0.05" rgba=".3 .3 .3 1"/>
+                </composite>
+            </body>
+
+        </body>
+
+</mujoco>

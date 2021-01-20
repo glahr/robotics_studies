@@ -1,0 +1,70 @@
+<!-- ======================================================
+	Model 		:: 4W-Rover for Robot Trekking (2016)
+		
+	Mujoco		:: Advanced physics simulation engine
+	Version		:: 0.2
+====================================================== -->
+<mujoco model="rover (v0.2)">
+
+    <compiler inertiafromgeom="true" angle="degree"/>
+	<option	timestep="0.02" gravity="0 0 -9.81"/>
+	
+	<asset>
+		<material name="MatWheel" specular="1" rgba=".1 .1 .1 1"/>
+		<material name="MatBody" specular="1" rgba=".6 .6 .1 1"/>
+	</asset>
+	
+	<default>
+		<!--making every geom collidable. expect those that dont are default-->
+		<geom contype="1" conaffinity="1"/>
+	</default>
+	
+	<default class="acker_solver_param">
+		<!--solver impedance and reference(?) for ackerman equality constraint-->
+		<!--default solimp: "0.900 0.950 0.001"-->
+		<!--default solref: "0.020 1.000"-->
+		<!--solref: (timeconst, dampratio)
+			b = 2 / (dmax * timeconst)
+			k = d(r) / (dmax * dmax * timeconst * timeconst * dampratio * dampratio)
+		-->
+		<equality solimp="0.9950 0.9990 0.0001" solref="0.0100 0.7500"/>
+	</default>
+	
+	<visual>
+		<headlight active="1"/>
+		<scale camera=".5"/>
+		<map znear="0.001" zfar="1000"/>
+	</visual>
+	
+    <worldbody>
+        <light directional="true" diffuse=".4 .4 .4" specular="0.1 0.1 0.1" pos="0 0 5.0" dir="0 0 -1" castshadow="false"/>
+        <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1"/>
+        
+        <geom name="ground" type="plane" size="0 0 1" pos="0 0 0" quat="1 0 0 0"/>
+        
+        <body pos=".1 0 .5" euler="0 90 0">
+            <joint type="hinge" axis="0 0 1" name="j1"/>
+            <geom type="cylinder" size=".1 .01"/>
+            <site pos=".07 0 0" size=".02"/>
+            <site pos="-.07 0 0" size=".02"/>
+        </body>
+		<body pos="-.1 0 .5" euler="0 90 0">
+            <joint type="hinge" axis="0 0 1" name="j2"/>
+			<geom type="cylinder" size=".05 .01"/>
+            <site pos=".02 0 0" size=".02"/>
+            <site pos="-.02 0 0" size=".02"/>
+        </body>
+    </worldbody>
+	
+	<tendon>
+		<fixed name="tendon">
+			<joint joint="j1" coef="1"/>
+			<joint joint="j2" coef=".1"/>
+		</fixed>
+	</tendon>
+	
+    <actuator>
+        <motor name="tendon-ctrl" tendon="tendon" ctrllimited="true" ctrlrange="-.1 .1"/>
+    </actuator>
+
+</mujoco>

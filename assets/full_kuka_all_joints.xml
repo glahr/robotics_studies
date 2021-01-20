@@ -7,6 +7,9 @@
     <flag gravity="disable"/>
   </option>
 
+  <size nconmax="5000" njmax="10000" nstack="50000000"/>
+  <include file="scene.xml"/>
+
   <default>
     <joint damping="0.5"/>
     <default class="visual">
@@ -25,12 +28,15 @@
 
   <worldbody>
     <light pos="0 0 1000" castshadow="false"/>
-    <geom class="collision" type="plane" size="10 10 1" rgba=".8 .8 .8 1"/>
+<!--    <geom class="collision" type="plane" size="10 10 1" rgba=".8 .8 .8 1"/>-->
     <body name="kuka_table" pos="0 0 0.5">
       <geom class="collision" type="box" size=".125 .125 .5" pos="0 0 0"/>
       <body name="kuka_base" pos="0 0 0.5">
           <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
       </body>
+    </body>
+    <body name="dorsal" pos="0 -.6 1.8">
+      <include file="softbody.xml"/>
     </body>
   </worldbody>
 
