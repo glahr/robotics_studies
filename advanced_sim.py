@@ -40,38 +40,42 @@ if __name__ == '__main__':
     qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
-    # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, 0.1, 0, -0.6, 0, 0.13, 0])
-    # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([np.pi/3, 0, 0, -np.pi/2, 0, 0, 0])
-    # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # q0 = np.zeros(7)
-    # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
     # Inverse dynamics in joint space with operational space
-    xd, xdmat = ctrl.get_site_pose(sim)
+    # xd, xdmat = ctrl.get_site_pose(sim)
+    # xd = sim.data.get_site_xpos(ctrl.name_hole_top)
+    # xdmat = sim.data.get_site_xmat(ctrl.name_hole_top)
 
-    xd[0] -= 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[0] -= 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[1] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[0] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[1] -= 0.05
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[2] -= 0.2
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # Operational space control
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
-
+    #
     xd, xdmat = ctrl.get_site_pose(sim)
     xd[0] -= 0.05
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    # xd[1] += 0.05
-    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    # xd[0] += 0.05
-    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
-    # xd[1] -= 0.05
-    # ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[1] += 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[0] += 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    xd[1] -= 0.05
+    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
 
     if plot_2d:
         ctrl.plots()

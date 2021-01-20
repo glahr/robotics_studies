@@ -32,12 +32,13 @@
           <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
       </body>
     </body>
-    <!-- <body name="experiment_table" pos="1.2 0 1">
-      <geom type="box" size=".5 .5 .5" pos="0 0 -.5"/>
-      <body pos="-.4 0 0">
-        <include file="hole/polyhedral_hole_inner=0-0068_outer=0-05_height=0-05_num_facets=16.xml"/>
-      </body>
-    </body> -->
+<!--    <body name="experiment_table" pos="0.625 0 1">-->
+<!--      <geom type="box" size=".5 .5 .5" pos="0 0 -.5"/>-->
+<!--    </body>-->
+
+<!--      <body pos=".5 0 1." mocap="true">-->
+<!--        <include file="polyhedral_hole_inner=0-006821_outer=0-10_height=0-05_num_facets=16_id=095.xml"/>-->
+<!--      </body>-->
   </worldbody>
 
   <actuator>
