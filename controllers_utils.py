@@ -20,6 +20,7 @@ class CtrlUtils:
 
     def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
                  use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
+        self.nv = 7
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
         self.use_gravity = use_gravity
@@ -35,9 +36,9 @@ class CtrlUtils:
         self.n_timesteps = int(simulation_time / self.dt)
 
         self.time_log = np.zeros((self.n_timesteps, 1))
-        self.H = np.zeros(self.sim.model.nv * self.sim.model.nv)  # inertia matrix
+        self.H = np.zeros(self.nv * self.nv)  # inertia matrix
         self.C = np.zeros((7,))  # Coriolis vector
-        self.qd = np.zeros((self.sim.model.nv,))
+        self.qd = np.zeros((self.nv,))
         self.xd = np.zeros(3)
 
         self.controller_type = controller_type
@@ -282,8 +283,8 @@ class CtrlUtils:
         self.Kd = Kd
 
     def tau_g(self, sim):
-        Jp_shape = (3, sim.model.nv)
-        comp = np.zeros((sim.model.nv,))
+        Jp_shape = (3, nv)
+        comp = np.zeros((nv,))
         for body, mass in zip(self.name_bodies, self.mass_links):
             Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
             comp = comp - np.dot(Jp.T, sim.model.opt.gravity * mass)
@@ -325,8 +326,8 @@ class CtrlUtils:
 
     def get_inertia_matrix(self, sim):
         # inertia matrix H
-        mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
-        H_ = self.H.reshape(sim.model.nv, sim.model.nv)
+        mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM[:28])
+        H_ = self.H.reshape(self.nv, self.nv)
         return H_
 
     def get_coriolis_vector(self, sim):
@@ -334,10 +335,11 @@ class CtrlUtils:
         return sim.data.qfrc_bias
 
     def get_jacobian_site(self, sim):
-        Jp_shape = (3, sim.model.nv)
-        jacp  = sim.data.get_site_jacp(self.name_tcp).reshape(Jp_shape)
-        jacr  = sim.data.get_site_jacr(self.name_tcp).reshape(Jp_shape)
-        return np.vstack((jacp, jacr))
+        Jp_shape = (3, self.nv)
+        jacp = np.zeros(3*self.nv)
+        jacr = np.zeros(3 * self.nv)
+        mujoco_py.functions.mj_jacSite(sim.model, sim.data, jacp, jacr, 1)
+        return np.vstack((jacp.reshape(Jp_shape), jacr.reshape(Jp_shape)))
 
     def get_euler_angles(self, sim=None, mat=None):
         if sim is not None:
