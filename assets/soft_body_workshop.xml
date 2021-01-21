@@ -1,0 +1,133 @@
+<mujoco>
+
+    <include file="scene.xml"/>
+
+    <option solver="CG" tolerance="1e-6"/>
+
+    <size nconmax="5000" njmax="5000" nstack="5000000"/>
+
+    <option>
+        <flag gravity="disable"/>
+    </option>
+
+    <asset>
+        <material name="skin" rgba="0.5 0.5 0.5 1"/>
+    </asset>
+
+
+
+    <worldbody>
+        <!-- Primeiro exemplo -->
+<!--        <composite type="particle" count="10 10 10" spacing="0.07" offset="0 1 1">-->
+<!--            <geom size=".02" rgba=".8 .2 .1 1"/>-->
+<!--        </composite>-->
+
+
+        <!-- Segundo exemplo -->
+<!--        <composite type="grid" count="20 1 1" spacing="0.045" offset="0 0 1">-->
+<!--            <joint kind="main" damping="0.01"/>-->
+<!--            <tendon kind="main" width="0.01"/>-->
+<!--            <geom size=".02" rgba=".8 .2 .1 1"/>-->
+<!--            <pin coord="1"/>-->
+<!--            <pin coord="14"/>-->
+<!--        </composite>-->
+
+        <!-- Terceiro exemplo -->
+<!--        <composite type="grid" count="9 9 1" spacing="0.05" offset="0 0 1">-->
+<!--&lt;!&ndash;            <skin material="matcarpet" inflate="0.001" subgrid="3" texcoord="true"/>&ndash;&gt;-->
+<!--            <joint kind="main" damping="5"/>-->
+<!--            <geom size=".02"/>-->
+<!--            <pin coord="0 0"/>-->
+<!--            <pin coord="8 0"/>-->
+<!--            <pin coord="0 8"/>-->
+<!--            <pin coord="8 8"/>-->
+<!--        </composite>-->
+
+        <!-- Quarto exemplo -->
+<!--        <body name="B10" pos="0 0 1">-->
+<!--            <freejoint/>-->
+<!--            <composite type="rope" count="21 1 1" spacing="0.04" offset="0 0 2">-->
+<!--                <joint kind="main" damping="0.005"/>-->
+<!--                <geom type="capsule" size=".01 .015" rgba=".8 .2 .1 1"/>-->
+<!--            </composite>-->
+<!--        </body>-->
+
+        <!-- Quinto exemplo -->
+<!--        <body name="B10" pos="0 0 1">-->
+<!--            <freejoint/>-->
+<!--            <composite type="loop" count="21 1 1" spacing="0.04" offset="0 0 2">-->
+<!--                <joint kind="main" damping="0.005"/>-->
+<!--                <geom type="capsule" size=".01 .015" rgba=".8 .2 .1 1"/>-->
+<!--            </composite>-->
+<!--        </body>-->
+
+        <!-- Sexto exemplo -->
+<!--        <body name="B3_5" pos="0 0 1">-->
+<!--            <freejoint/>-->
+<!--            <composite type="cloth" count="9 9 1" spacing="0.05" flatinertia="0.01">-->
+<!--                <joint kind="main" damping="0.001"/>-->
+<!--&lt;!&ndash;                <skin material="matcarpet" texcoord="true" inflate="0.005" subgrid="2"/>&ndash;&gt;-->
+<!--                <geom type="capsule" size="0.015 0.01" rgba=".8 .2 .1 1"/>-->
+<!--            </composite>-->
+<!--        </body>-->
+
+        <!-- Setimo exemplo -->
+<!--        <body pos="0 0 1">-->
+<!--            <freejoint/>-->
+<!--            <composite type="box" count="7 7 7" spacing="0.08">-->
+<!--&lt;!&ndash;                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>&ndash;&gt;-->
+<!--                <joint kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>-->
+<!--                <tendon kind="main" damping="10" stiffness="400" solreffix="-0.05 -1"/>-->
+<!--                <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>-->
+<!--            </composite>-->
+<!--        </body>-->
+
+
+        <!-- Oitavo exemplo -->
+<!--        <composite prefix="first" type="grid" count="9 9 1" spacing="0.05" offset="0 0 1">-->
+<!--&lt;!&ndash;            <skin material="matcarpet" inflate="0.001" subgrid="3" texcoord="true"/>&ndash;&gt;-->
+<!--            <joint kind="main" damping="0.01" stiffness="400"/>-->
+<!--            <geom size=".02" rgba=".8 .2 .1 1"/>-->
+<!--            <pin coord="0 0"/>-->
+<!--            <pin coord="8 0"/>-->
+<!--            <pin coord="0 8"/>-->
+<!--            <pin coord="8 8"/>-->
+<!--        </composite>-->
+
+<!--        <composite prefix="second" type="grid" count="6 6 1" spacing="0.05" offset="0 0 1.05">-->
+<!--&lt;!&ndash;            <skin material="matcarpet" inflate="0.001" subgrid="3" texcoord="true"/>&ndash;&gt;-->
+<!--            <joint kind="main" damping="0.01" stiffness="50"/>-->
+<!--            <geom size=".02" rgba=".5 .5 .5 1"/>-->
+<!--            <pin coord="0 0"/>-->
+<!--            <pin coord="8 0"/>-->
+<!--            <pin coord="0 8"/>-->
+<!--            <pin coord="8 8"/>-->
+<!--        </composite>-->
+
+            <!-- Nono exemplo -->
+<!--            <body name="scalpel" pos="0.15 0.111 1.1">-->
+<!--                <joint type="slide" axis="1 0 0"/>-->
+<!--                <geom type="box" size=".02 .01 .1"/>-->
+<!--            </body>-->
+<!--            <composite prefix="skin_one" type="grid" count="6 6 1" spacing="0.05" offset="0 0 1.05">-->
+<!--                <skin material="skin" inflate="0.001" subgrid="3" texcoord="true"/>-->
+<!--                <joint kind="main" damping="5" stiffness="10"/>-->
+<!--                <geom size=".01" rgba=".8 .2 .1 1"/>-->
+<!--                <pin coord="0 0"/>-->
+<!--                <pin coord="8 0"/>-->
+<!--                <pin coord="0 8"/>-->
+<!--                <pin coord="8 8"/>-->
+<!--            </composite>-->
+
+<!--            <composite prefix="skin_two" type="grid" count="6 6 1" spacing="0.05" offset="0 0.27 1.05">-->
+<!--                <skin material="skin" inflate="0.001" subgrid="3" texcoord="true"/>-->
+<!--                <joint kind="main" damping="5" stiffness="10"/>-->
+<!--                <geom size=".01" rgba=".5 .5 .5 1"/>-->
+<!--                <pin coord="0 0"/>-->
+<!--                <pin coord="8 0"/>-->
+<!--                <pin coord="0 8"/>-->
+<!--                <pin coord="8 8"/>-->
+<!--            </composite>-->
+
+    </worldbody>
+</mujoco>
