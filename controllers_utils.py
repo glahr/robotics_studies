@@ -374,7 +374,7 @@ class CtrlUtils:
         if xd is not None:
             self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
         self._clear_integral_variables()
-        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
+        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q0=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
         self.iiwa_kin.traj_joint_generate(self.qd, np.asarray(sim.data.qpos))
 
         k = 1
@@ -473,13 +473,19 @@ class TrajGen:
         assert(self.iterator is not None)
         return next(self.iterator)
 
+
 class TrajectoryJoint(TrajGen):
 
-    def __init__(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+    def __init__(self, qd, ti, t_duration=1, dt=0.002, q0=np.zeros((7,)), traj_profile=None):
         super(TrajectoryJoint, self).__init__()
-        self.iterator = self._traj_implementation(qd, ti, t_duration, dt, q_act, traj_profile)
+        self.q0 = q0
+        self.qd = qd
+        self.ti = ti
+        self.n_timesteps = int((t_duration) / dt)
+        self.time = np.linspace(ti, t_duration + ti, self.n_timesteps)
+        self.iterator = self._traj_implementation(qd, ti, t_duration, dt, q0, traj_profile)
 
-    def _traj_implementation(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+    def _traj_implementation(self, qd, ti, t_duration=1, dt=0.002, q0=np.zeros((7,)), traj_profile=None):
         """
         Joint trajectory generation with different methods.
         :param qd: joint space desired final point
@@ -487,25 +493,22 @@ class TrajectoryJoint(TrajGen):
         :param n: number of time steps
         :param ti: initial time
         :param dt: time step
-        :param q_act: current joint position
+        :param q0: current joint position
         :param traj_profile: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
         :return:
         """
-        n_timesteps = int((t_duration) / dt)
-        time = np.linspace(ti, t_duration + ti, n_timesteps)
-        # tf = ti + t_duration
 
         if traj_profile == TrajectoryProfile.SPLINE3:
             T = t_duration
             qvel0 = np.zeros((7,))
             qvelf = np.zeros((7,))
-            Q = np.array([q_act, qvel0, qd, qvelf])
+            Q = np.array([q0, qvel0, qd, qvelf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
                                             [0, 1, 0, 0],
                                             [1, T, T ** 2, T ** 3],
                                             [0, 1, 2 * T, 3 * T ** 2]]))
             coeffs = np.dot(A_inv, Q)
-            for t in time:
+            for t in self.time:
                 q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
                 qvel_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
                 qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
@@ -517,7 +520,7 @@ class TrajectoryJoint(TrajGen):
             qacc0 = np.zeros((7,))
             qvelf = np.zeros((7,))
             qaccf = np.zeros((7,))
-            Q = np.array([q_act, qvel0, qacc0, qd, qvelf, qaccf])
+            Q = np.array([q0, qvel0, qacc0, qd, qvelf, qaccf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
                                             [0, 1, 0, 0, 0, 0],
                                             [0, 0, 2, 0, 0, 0],
@@ -525,7 +528,7 @@ class TrajectoryJoint(TrajGen):
                                             [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
                                             [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
             coeffs = np.dot(A_inv, Q)
-            for t in time:
+            for t in self.time:
                 q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
                                   coeffs)
                 qvel_ref = np.dot(
@@ -536,6 +539,16 @@ class TrajectoryJoint(TrajGen):
         while True:
             self.extra_points = self.extra_points + 1
             yield q_ref, qvel_ref, qacc_ref
+
+    def plot_traj(self):
+        q = []
+        qtraj = self._traj_implementation(self.qd, self.ti, q0=self.q0, traj_profile=TrajectoryProfile.SPLINE3)
+        print(qtraj)
+        for i, t in enumerate(self.time):
+            qpos, _, _ = qtraj.next()
+            q.apend(qpos)
+        plt.plot(self.time, qpos)
+
 
 class TrajectoryOperational(TrajGen):
 
