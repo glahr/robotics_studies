@@ -15,7 +15,6 @@ class CtrlType(Enum):
     INDEP_JOINTS = auto()
     INV_DYNAMICS = auto()
     INV_DYNAMICS_OP_SPACE = auto()
-    IMPEDANCE = auto()
 
 class CtrlUtils:
 
@@ -30,6 +29,8 @@ class CtrlUtils:
         self.xpos_kuka_base = self.sim.data.get_body_xpos('kuka_base')
         self.name_tcp = self.sim.model.site_id2name(1)
         self.name_ft_sensor = self.sim.model.site_id2name(2)
+        # self.name_hole_top = self.sim.model.site_id2name(3)
+        # self.name_hole_base = self.sim.model.site_id2name(4)
 
         self.n_timesteps = int(simulation_time / self.dt)
 
@@ -130,19 +131,19 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        tau0 = 50*(self.q_nullspace - sim.data.qpos) + 50*self.tau_g(sim)*0
+        tau0 = 50*(self.q_nullspace - self.get_robot_qpos(sim)) + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
-        # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
-        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(sim.data.qvel))
+        # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, self.get_robot_qvel(sim)))
+        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
         # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
 
         # OK: Khatib
-        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
+        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(self.get_robot_qvel(sim)))
 
         # OK: Handbook
-        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
+        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
 
         v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              self.Kd.dot(np.concatenate((self.error_xvel, self.error_rvel))) +\
@@ -165,9 +166,7 @@ class CtrlUtils:
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
         H = self.get_inertia_matrix(sim)
-        C = self.get_coriolis_vector(sim)[0:7]
-        #print(H.shape)
-        #print(C.shape)
+        C = self.get_coriolis_vector(sim)
 
         v_ = qacc_ref + self.Kd.dot(self.error_qvel) + self.Kp.dot(self.error_q)
 
@@ -221,11 +220,11 @@ class CtrlUtils:
             quat_act = self.get_site_quat_from_mat(sim, self.name_tcp)
             mujoco_py.functions.mju_subQuat(self.error_r, quat_ref, quat_act)
             J = self.get_jacobian_site(sim)
-            w_act = J.dot(sim.data.qvel)[3:]
+            w_act = J.dot(self.get_robot_qvel(sim))[3:]
             self.error_rvel = w_ref - w_act
         else:
-            qpos = sim.data.qpos[0:7]
-            qvel = sim.data.qvel[0:7]
+            qpos = self.get_robot_qpos(sim)
+            qvel = self.get_robot_qvel(sim)
             self.error_q = qpos_ref - qpos
             self.error_qvel = qvel_ref - qvel
 
@@ -320,15 +319,14 @@ class CtrlUtils:
         else:
             self.error_q_ant = self.error_q
             if self.plot_2d:
-                self.q_log[k] = sim.data.qpos
+                self.q_log[k] = self.get_robot_qpos(sim)
                 self.time_log[k] = sim.data.time
         sim.step()
 
     def get_inertia_matrix(self, sim):
         # inertia matrix H
         mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
-
-        H_ = self.H[0:49].reshape(7,7) # sim.model.nv
+        H_ = self.H.reshape(sim.model.nv, sim.model.nv)
         return H_
 
     def get_coriolis_vector(self, sim):
@@ -363,7 +361,7 @@ class CtrlUtils:
         return xquat
 
     # def inv_kinematics(self, sim):
-    #     q_act = sim.data.qpos
+    #     q_act = self.get_robot_qpos(sim)
     #     J = self.get_jacobian_site(sim)
     #     J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
     #     v_tcp = np.concatenate((sim.data.get_site_xvelp(self.name_tcp), sim.data.get_site_xvelr(self.name_tcp)))
@@ -374,17 +372,19 @@ class CtrlUtils:
         if qd is not None:
             self.qd = qd
         if xd is not None:
-            self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
+            self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))
         self._clear_integral_variables()
-        trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q_act=sim.data.qpos[0:7], traj_profile=TrajectoryProfile.SPLINE3)
+        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q0=self.get_robot_qpos(sim), traj_profile=TrajectoryProfile.SPLINE3)
+        self.iiwa_kin.traj_joint_generate(self.qd, np.asarray(self.get_robot_qpos(sim)))
 
         k = 1
 
         while True:
-            qpos_ref, qvel_ref, qacc_ref = trajectory.next()
+            # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
+            qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.traj_joint_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
 
-            if (np.absolute(self.qd - sim.data.qpos[0:7]) < eps).all():
+            if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -407,15 +407,17 @@ class CtrlUtils:
         k = 0
         x_act_mat = sim.data.get_site_xmat(self.name_tcp)
         trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
-                                           pose_act=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
+                                           pose0=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
+        # self.iiwa_kin.traj_cart_generate(xd, xdmat, x_act, x_act_mat)
         self.kp = 200
         self.get_pd_matrices()
         eps = 0.003
 
-        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)[0]
+        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
 
         while True:
             kinematics = trajectory.next()
+            # kinematics =
             self.calculate_errors(sim, k, kin=kinematics)
 
             # TODO: implement orientation error stopping criteria
@@ -432,6 +434,12 @@ class CtrlUtils:
             k += 1
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 return
+
+    def get_robot_qpos(self, sim):
+        return sim.data.qpos[0:7]
+
+    def get_robot_qvel(self, sim):
+        return sim.data.qvel[0:7]
 
     def render_frame(self, viewer, pos, mat):
         viewer.add_marker(pos=pos,
@@ -471,13 +479,19 @@ class TrajGen:
         assert(self.iterator is not None)
         return next(self.iterator)
 
+
 class TrajectoryJoint(TrajGen):
 
-    def __init__(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+    def __init__(self, qd, ti, t_duration=1, dt=0.002, q0=np.zeros((7,)), traj_profile=None):
         super(TrajectoryJoint, self).__init__()
-        self.iterator = self._traj_implementation(qd, ti, t_duration, dt, q_act, traj_profile)
+        self.q0 = q0
+        self.qd = qd
+        self.ti = ti
+        self.n_timesteps = int((t_duration) / dt)
+        self.time = np.linspace(ti, t_duration + ti, self.n_timesteps)
+        self.iterator = self._traj_implementation(qd, ti, t_duration, dt, q0, traj_profile)
 
-    def _traj_implementation(self, qd, ti, t_duration=1, dt=0.002, q_act=np.zeros((7,)), traj_profile=None):
+    def _traj_implementation(self, qd, ti, t_duration=1, dt=0.002, q0=np.zeros((7,)), traj_profile=None):
         """
         Joint trajectory generation with different methods.
         :param qd: joint space desired final point
@@ -485,25 +499,22 @@ class TrajectoryJoint(TrajGen):
         :param n: number of time steps
         :param ti: initial time
         :param dt: time step
-        :param q_act: current joint position
+        :param q0: current joint position
         :param traj_profile: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
         :return:
         """
-        n_timesteps = int((t_duration) / dt)
-        time = np.linspace(ti, t_duration + ti, n_timesteps)
-        # tf = ti + t_duration
 
         if traj_profile == TrajectoryProfile.SPLINE3:
             T = t_duration
             qvel0 = np.zeros((7,))
             qvelf = np.zeros((7,))
-            Q = np.array([q_act, qvel0, qd, qvelf])
+            Q = np.array([q0, qvel0, qd, qvelf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
                                             [0, 1, 0, 0],
                                             [1, T, T ** 2, T ** 3],
                                             [0, 1, 2 * T, 3 * T ** 2]]))
             coeffs = np.dot(A_inv, Q)
-            for t in time:
+            for t in self.time:
                 q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffs)
                 qvel_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffs)
                 qacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffs)
@@ -515,7 +526,7 @@ class TrajectoryJoint(TrajGen):
             qacc0 = np.zeros((7,))
             qvelf = np.zeros((7,))
             qaccf = np.zeros((7,))
-            Q = np.array([q_act, qvel0, qacc0, qd, qvelf, qaccf])
+            Q = np.array([q0, qvel0, qacc0, qd, qvelf, qaccf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0, 0, 0],
                                             [0, 1, 0, 0, 0, 0],
                                             [0, 0, 2, 0, 0, 0],
@@ -523,7 +534,7 @@ class TrajectoryJoint(TrajGen):
                                             [0, 1, 2 * T, 3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
                                             [0, 0, 2, 6 * T, 12 * T ** 2, 20 * T ** 3]]))
             coeffs = np.dot(A_inv, Q)
-            for t in time:
+            for t in self.time:
                 q_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3, (t - ti) ** 4, (t - ti) ** 5]),
                                   coeffs)
                 qvel_ref = np.dot(
@@ -535,76 +546,90 @@ class TrajectoryJoint(TrajGen):
             self.extra_points = self.extra_points + 1
             yield q_ref, qvel_ref, qacc_ref
 
+    def plot_traj(self):
+        q = []
+        qtraj = self._traj_implementation(self.qd, self.ti, q0=self.q0, traj_profile=TrajectoryProfile.SPLINE3)
+        print(qtraj)
+        for i, t in enumerate(self.time):
+            qpos, _, _ = qtraj.next()
+            q.apend(qpos)
+        plt.plot(self.time, qpos)
+
+
 class TrajectoryOperational(TrajGen):
 
-    def __init__(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj_profile=None):
+    def __init__(self, posed, ti, t_duration=1, dt=0.002, pose0=(np.zeros(3), np.eye(3)), traj_profile=None):
         super(TrajectoryOperational, self).__init__()
-        self.iterator = self._traj_implementation(posed, ti, t_duration, dt, pose_act, traj_profile)
+        self.iterator = self._traj_implementation(posed, ti, t_duration, dt, pose0, traj_profile)
 
-    def _traj_implementation(self, posed, ti, t_duration=1, dt=0.002, pose_act=np.zeros((7,)), traj_profile=None):
+    def _traj_implementation(self, posed, ti, t_duration=1, dt=0.002, pose0=(np.zeros(3), np.eye(3)), traj_profile=None):
         """
         Joint trajectory generation with different methods.
-        :param qd: joint space desired final point
+        :param posed: desired pose
+        :param ti: initial time
         :param t_duration: total time of travel
         :param n: number of time steps
         :param ti: initial time
         :param dt: time step
-        :param q_act: current joint position
+        :param pose0: current pose
         :param traj_profile: type of trajectory 'step', 'spline3', 'spline5', 'trapvel'
         :return:
         """
 
-        xd = posed[0]
-        xd_mat = posed[1]
+        xf = posed[0]
+        xf_mat = posed[1]
+        x0 = pose0[0]
+        xmat_act = pose0[1]
 
         n_timesteps = int(t_duration / dt)
         time_spline = np.linspace(ti, t_duration + ti, n_timesteps)
-        # k = int(ti / self.dt)
-        # self.r_ref[:] = self.get_euler_angles(mat=xd_mat)
-        quat_ref = np.zeros(4)
-        mujoco_py.functions.mju_mat2Quat(quat_ref, xd_mat.flatten())
-        quat_act = np.zeros(4)
-        mujoco_py.functions.mju_mat2Quat(quat_act, pose_act[1].flatten())
 
-
-        # self.x_ref[k:] = xd
-        # self.r_ref[k:] = quat_ref
+        quatf = np.zeros(4)
+        mujoco_py.functions.mju_mat2Quat(quatf, xf_mat.flatten())
+        quat0 = np.zeros(4)
+        mujoco_py.functions.mju_mat2Quat(quat0, xmat_act.flatten())
 
         if traj_profile == TrajectoryProfile.SPLINE3:
             T = t_duration
-            x0 = pose_act[0]
-            xvel0 = np.zeros((3,))
-            xf = xd
-            xvelf = np.zeros((3,))
+            xvel0 = np.zeros(3)
+            xvelf = np.zeros(3)
 
-            quat0 = quat_act
-            w0 = np.zeros(4)
-            quatf = quat_ref
-            wf = np.zeros(4)
+            quat0_v = np.zeros(4)
+            quatf_v = np.zeros(4)
+            w_ref = np.zeros(3)
+            w_ant = np.zeros(3)
+            quat_ant = deepcopy(quat0)
 
-
-            X = np.array([x0, xvel0, xf, xvelf])
-            W = np.array([quat0, w0, quatf, wf])
             A_inv = np.linalg.inv(np.array([[1, 0, 0, 0],
                                             [0, 1, 0, 0],
                                             [1, T, T ** 2, T ** 3],
                                             [0, 1, 2 * T, 3 * T ** 2]]))
+
+            # Cartesian position constraints
+            X = np.array([x0, xvel0, xf, xvelf])
+
+            # Quaternions interp
+            Q = np.array([quat0, quat0_v, quatf, quatf_v])
+
             coeffsX = np.dot(A_inv, X)
-            coeffsW = np.dot(A_inv, W)
+            coeffsQ = np.dot(A_inv, Q)
             for i, t in enumerate(time_spline):
                 x_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffsX)
                 xvel_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffsX)
                 xacc_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffsX)
 
-                quat_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffsW)
-                w_ref = np.dot(np.array([0, 1, 2 * (t - ti), 3 * (t - ti) ** 2]), coeffsW)
-                alpha_ref = np.dot(np.array([0, 0, 2, 6 * (t - ti)]), coeffsW)
+                quat_ref = np.dot(np.array([1, (t - ti), (t - ti) ** 2, (t - ti) ** 3]), coeffsQ)
+                mujoco_py.functions.mju_subQuat(w_ref, quat0, quat_ant)
+                quat_ant = quat0
+                alpha_ref = (w_ref - w_ant)/dt
+                w_ant = w_ref
 
-                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]
+                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
 
         while True:
             self.extra_points = self.extra_points + 1
-            yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref[:3], alpha_ref[:3]  #TODO: returning first 3 values? study quaternion kinem.
+            yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
+
 
 class KinematicsIiwa:
     def __init__(self):
@@ -622,11 +647,56 @@ class KinematicsIiwa:
         T_new.R[:] = smath.SO3.Rz(np.pi) * T_new.R
         self.iiwa.base = T_new
 
+        self.k = 0
+        self.q = None
+        self.qvel = None
+        self.qacc = None
+        self.traj = None
+        self.n = 500
+
     def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
-        Td = smath.SE3(xd) * smath.SE3.OA(xdmat[:, 1], xdmat[:, 2])
-        qd = self.iiwa.ikine(Td, q0=q0.reshape(1,7), ilimit=200)
+        Td = self.create_T(xd, xdmat)
+        qd = self.iiwa.ikine(Td, q0=q0.reshape(1, 7), ilimit=200)
         return qd[0]
 
     def fk_iiwa(self, qd):
         fk = self.iiwa.fkine(qd)
         return fk.t, fk.R
+
+    def traj_joint_generate(self, qd, q0, t=2):
+        self.k = 0
+        _, self.q, self.qvel, self.qacc = rtb.trajectory.jtraj(q0=q0, qf=qd, tv=np.linspace(0, t, self.n))
+
+    def traj_joint_get_point(self):
+        if self.k < self.n:
+            self.k += 1
+        return self.q[self.k - 1], self.qvel[self.k - 1], self.qacc[self.k - 1]
+
+    def create_T(self, x, xmat):
+        T = smath.SE3(x) * smath.SE3.OA(xmat[:, 1], xmat[:, 2])
+        return T
+
+    def traj_cart_generate(self, xd, xdmat, x0, x0mat, dt=0.002, tmax=2):
+        T0 = self.create_T(x0, x0mat)
+        Tf = self.create_T(xd, xdmat)
+        self.traj = rtb.trajectory.ctraj(T0, Tf, int(tmax/dt))
+
+    def traj_cart_get_point(self, dt=0.002):
+        x = self.traj[self.k].t
+        if self.k > 1:
+            v = (self.traj[self.k].t - self.traj[self.k-1].t)/dt
+        else:
+            v = np.zeros(3)
+        if self.k > 2:
+            a = (self.traj[self.k].t - 2*self.traj[self.k-1].t + self.traj[self.k-2].t)/dt
+        else:
+            a = np.zeros(3)
+
+
+
+        if self.k < self.n:
+            self.k += 1
+        return
+
+
+    # TODO: implement ctraj()

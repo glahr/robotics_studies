@@ -8,7 +8,7 @@
   </option>
 
   <size nconmax="5000" njmax="10000" nstack="50000000"/>
-  <include file="scene.xml"/>
+<!--  <include file="scene.xml"/>-->
 
   <default>
     <joint damping="0.5"/>
@@ -35,9 +35,9 @@
           <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
       </body>
     </body>
-    <body name="dorsal" pos="0 -.6 1.8">
-      <include file="softbody.xml"/>
-    </body>
+<!--    <body name="dorsal" pos="0 -.6 1.8">-->
+<!--      <include file="softbody.xml"/>-->
+<!--    </body>-->
   </worldbody>
 
   <actuator>

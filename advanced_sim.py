@@ -40,6 +40,10 @@ if __name__ == '__main__':
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # POSITIONING
+    ctrl.controller_type = CtrlType.INDEP_JOINTS
+    ctrl.kp = 5
+    ctrl.use_ki = False
+    ctrl.get_pd_matrices()
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd[5] += np.pi/2
