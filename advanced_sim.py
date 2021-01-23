@@ -2,9 +2,26 @@
 from mujoco_py import load_model_from_path, MjSim, MjViewer
 import numpy as np
 from controllers_utils import CtrlUtils, CtrlType
+from draw import reference
 
-def load_model_mujoco(simulate, use_gravity):
-    model_name = "assets/full_kuka_all_joints"
+reference()
+
+def load_model_mujoco(simulate, use_gravity, box):
+    dict = {
+        1: "assets/full_kuka_all_joints_soft_body_part_one",
+        2: "assets/full_kuka_all_joints_soft_body_part_two",
+        3: "assets/full_kuka_all_joints_soft_body_part_three",
+        4: "assets/full_kuka_all_joints_soft_body_part_four",
+        5: "assets/full_kuka_all_joints_soft_body_part_five",
+        6: "assets/full_kuka_all_joints_soft_body_part_six",
+        7: "assets/full_kuka_all_joints_soft_body_part_seven",
+        8: "assets/full_kuka_all_joints_soft_body_part_eight",
+        9: "assets/full_kuka_all_joints_soft_body_part_nine",
+        10: "assets/full_kuka_all_joints"
+    }
+
+    model_name = dict.get(box)
+
     if use_gravity:
         model_name += "_gravity"
     model_xml = load_model_from_path(model_name + '.xml')
@@ -32,27 +49,50 @@ if __name__ == '__main__':
     # controller_type = CtrlType.INV_DYNAMICS
     # controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
-    sim, viewer = load_model_mujoco(show_simulation, use_gravity)
+
+    box = int(input("Enter the number of box to be analyzed (number 10 is all boxes): "))
+
+    sim, viewer = load_model_mujoco(show_simulation, use_gravity, box)
     sim.step()  # single step for operational space update
     ctrl = CtrlUtils(sim, simulation_time=simulation_time, use_gravity=use_gravity,
                      plot_2d=plot_2d, use_kd=use_kd, use_ki=use_ki)
 
+    ctrl.get_pd_matrices()
+    ctrl.Kp[5, 5] = 10
+    ctrl.Kd[5, 5] = 10
+
+    ctrl.Kp[4, 4] = 100
+    ctrl.Kd[4, 4] = 20
+
+    ctrl.Kp[3, 3] = 200
+    ctrl.Kd[3, 3] = 20
+
+    ctrl.Kp[1, 1] = 500
+    ctrl.Kd[1, 1] = 30
+
+    print(ctrl.Kp[1, 1])
+    print(ctrl.Kd[1, 1])
+
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # POSITIONING
-    ctrl.use_ki = False
-    ctrl.controller_type = CtrlType.INDEP_JOINTS
-    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-    qd[5] += np.pi/2
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    # ctrl.use_ki = False
+    # ctrl.controller_type = CtrlType.INDEP_JOINTS
+    #qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, 0, 0])
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    # qd[5] += np.pi/2
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
 
     # IMPEDANCE CONTROL
-    #ctrl.use_ki = False
-    #ctrl.controller_type = CtrlType.INDEP_JOINTS
-    #qd[0] += -np.pi / 2
-    #ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    ctrl.use_ki = False
+    ctrl.controller_type = CtrlType.INDEP_JOINTS
+    qd = np.array([0, 0, 0, 0, -np.pi / 2, 0, 0])
+    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, 0, 0])
+    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    # qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, -np.pi / 2, 0])
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
     # qd = np.array([0, 0.1, 0, -0.6, 0, 0.13, 0])
