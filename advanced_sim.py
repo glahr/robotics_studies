@@ -36,8 +36,8 @@ if __name__ == '__main__':
                      plot_2d=plot_2d, use_kd=use_kd, use_ki=use_ki)
 
     # Inverse dynamics in joint space
-    # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
-    qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
+    qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
+    # qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
@@ -66,8 +66,12 @@ if __name__ == '__main__':
 
     # Operational space control
     ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    xd = np.array([4.01863413e-01, -4.95389989e-05, 1.53277615e+00])
+    xdmat = np.array([[ 0.99995499, -0.00210169,  0.00925189],
+                      [-0.00209056, -0.99999708, -0.0012129 ],
+                      [ 0.00925441,  0.0011935 , -0.99995646]])
     #
-    xd, xdmat = ctrl.get_site_pose(sim)
+    # xd, xdmat = ctrl.get_site_pose(sim)
     xd[0] -= 0.05
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     xd[1] += 0.05
