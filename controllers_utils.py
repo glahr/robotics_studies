@@ -5,6 +5,11 @@ import roboticstoolbox as rtb
 import spatialmath as smath
 from enum import Enum, auto
 from copy import deepcopy
+from plots import displacement_plot
+
+time_k = []
+displacement_k = []
+
 
 class TrajectoryProfile(Enum):
     SPLINE3 = auto()
@@ -19,7 +24,7 @@ class CtrlType(Enum):
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
+    def __init__(self, sim_handle, box, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
                  use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
@@ -371,7 +376,7 @@ class CtrlUtils:
     #     q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
     #     return q_next
 
-    def move_to_joint_pos(self, sim, xd=None, xdmat=None, qd=None, viewer=None, eps=1.5*np.pi/180):
+    def move_to_joint_pos(self, sim, box, xd=None, xdmat=None, qd=None, viewer=None, eps=1.5*np.pi/180):
         if qd is not None:
             self.qd = qd
         if xd is not None:
@@ -384,8 +389,11 @@ class CtrlUtils:
         while True:
             qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
+            time_k.append(sim.data.time)
+            displacement_k.append(sim.data.sensordata[6])
 
             if (np.absolute(self.qd - sim.data.qpos[0:7]) < eps).all():
+                displacement_plot(time_k, displacement_k, box)
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -400,6 +408,7 @@ class CtrlUtils:
             k += 1
             # TODO: create other stopping criteria
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+                displacement_plot(time_k, displacement_k, box)
                 return
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):

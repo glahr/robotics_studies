@@ -3,6 +3,7 @@ from mujoco_py import load_model_from_path, MjSim, MjViewer
 import numpy as np
 from controllers_utils import CtrlUtils, CtrlType
 from draw import reference
+from plots import displacement_plot
 
 reference()
 
@@ -50,11 +51,11 @@ if __name__ == '__main__':
     # controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
 
-    box = int(input("Enter the number of box to be analyzed (number 10 is all boxes): "))
+    box = int(input("Enter the number of box to be analyzed (number 10 are all boxes): "))
 
     sim, viewer = load_model_mujoco(show_simulation, use_gravity, box)
     sim.step()  # single step for operational space update
-    ctrl = CtrlUtils(sim, simulation_time=simulation_time, use_gravity=use_gravity,
+    ctrl = CtrlUtils(sim, box, simulation_time=simulation_time, use_gravity=use_gravity,
                      plot_2d=plot_2d, use_kd=use_kd, use_ki=use_ki)
 
     ctrl.get_pd_matrices()
@@ -72,6 +73,7 @@ if __name__ == '__main__':
 
     print(ctrl.Kp[1, 1])
     print(ctrl.Kd[1, 1])
+    print(sim.data.sensordata)
 
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
@@ -88,9 +90,9 @@ if __name__ == '__main__':
     ctrl.use_ki = False
     ctrl.controller_type = CtrlType.INDEP_JOINTS
     qd = np.array([0, 0, 0, 0, -np.pi / 2, 0, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    ctrl.move_to_joint_pos(sim, box, qd=qd, viewer=viewer)
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, 0, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    ctrl.move_to_joint_pos(sim, box, qd=qd, viewer=viewer)
     # qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, -np.pi / 2, 0])
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, -0.4, 0, -0.3, .5, 0.69, 0])
@@ -101,6 +103,8 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
     # q0 = np.zeros(7)
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
+    print(sim.data.sensordata)
+    print(sim.data.sensordata[6:])
 
     # Inverse dynamics in joint space with operational space
     # xd, xdmat = ctrl.get_site_pose(sim)
