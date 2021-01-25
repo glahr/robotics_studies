@@ -107,6 +107,7 @@ class CtrlUtils:
             J_dot = np.zeros(J.shape)
         else:
             J_dot = (J - self.J_ant) / self.dt
+            self.J_ant = J
 
         J_inv = np.linalg.pinv(J)
         # Jt_inv = J_inv.T
@@ -131,7 +132,7 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        tau0 = 50*(self.q_nullspace - sim.data.qpos) + 50*self.tau_g(sim)*0
+        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
@@ -618,7 +619,7 @@ class TrajectoryOperational(TrajGen):
                 alpha_ref = (w_ref - w_ant)/dt
                 w_ant = w_ref
 
-                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
+                yield x_ref, xvel_ref, xacc_ref, quatf, np.zeros(3), np.zeros(3)  # quat_ref, w_ref, alpha_ref
 
         while True:
             self.extra_points = self.extra_points + 1
