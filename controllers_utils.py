@@ -132,19 +132,19 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        tau0 = 50*(self.q_nullspace - sim.data.qpos)*0 + 50*self.tau_g(sim)*0
+        tau0 = 50*(self.q_nullspace - self.get_robot_qpos(sim))*0 + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
 
         # H_op_space = Jt_inv.dot(H.dot(J_inv))
-        # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, sim.data.qvel))
-        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(sim.data.qvel))
+        # C_op_space = np.dot(H_op_space, np.dot(J, np.dot(H_inv, C)) - np.dot(J_dot, self.get_robot_qvel(sim)))
+        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
         # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
 
         # OK: Khatib
-        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(sim.data.qvel))
+        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(self.get_robot_qvel(sim)))
 
         # OK: Handbook
-        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(sim.data.qvel))
+        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
 
         v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              self.Kd.dot(np.concatenate((self.error_xvel, self.error_rvel))) +\
@@ -221,11 +221,11 @@ class CtrlUtils:
             quat_act = self.get_site_quat_from_mat(sim, self.name_tcp)
             mujoco_py.functions.mju_subQuat(self.error_r, quat_ref, quat_act)
             J = self.get_jacobian_site(sim)
-            w_act = J.dot(sim.data.qvel)[3:]
+            w_act = J.dot(self.get_robot_qvel(sim))[3:]
             self.error_rvel = w_ref - w_act
         else:
-            qpos = sim.data.qpos
-            qvel = sim.data.qvel
+            qpos = self.get_robot_qpos(sim)
+            qvel = self.get_robot_qvel(sim)
             self.error_q = qpos_ref - qpos
             self.error_qvel = qvel_ref - qvel
 
@@ -320,7 +320,7 @@ class CtrlUtils:
         else:
             self.error_q_ant = self.error_q
             if self.plot_2d:
-                self.q_log[k] = sim.data.qpos
+                self.q_log[k] = self.get_robot_qpos(sim)
                 self.time_log[k] = sim.data.time
         sim.step()
 
@@ -362,7 +362,7 @@ class CtrlUtils:
         return xquat
 
     # def inv_kinematics(self, sim):
-    #     q_act = sim.data.qpos
+    #     q_act = self.get_robot_qpos(sim)
     #     J = self.get_jacobian_site(sim)
     #     J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
     #     v_tcp = np.concatenate((sim.data.get_site_xvelp(self.name_tcp), sim.data.get_site_xvelr(self.name_tcp)))
@@ -373,10 +373,10 @@ class CtrlUtils:
         if qd is not None:
             self.qd = qd
         if xd is not None:
-            self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)
+            self.qd = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))
         self._clear_integral_variables()
-        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q0=sim.data.qpos, traj_profile=TrajectoryProfile.SPLINE3)
-        self.iiwa_kin.traj_joint_generate(self.qd, np.asarray(sim.data.qpos))
+        # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q0=self.get_robot_qpos(sim), traj_profile=TrajectoryProfile.SPLINE3)
+        self.iiwa_kin.traj_joint_generate(self.qd, np.asarray(self.get_robot_qpos(sim)))
 
         k = 1
 
@@ -385,7 +385,7 @@ class CtrlUtils:
             qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.traj_joint_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
 
-            if (np.absolute(self.qd - sim.data.qpos) < eps).all():
+            if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -414,7 +414,7 @@ class CtrlUtils:
         self.get_pd_matrices()
         eps = 0.003
 
-        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=sim.data.qpos)[0]
+        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
 
         while True:
             kinematics = trajectory.next()
@@ -435,6 +435,12 @@ class CtrlUtils:
             k += 1
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 return
+
+    def get_robot_qpos(self, sim):
+        return sim.data.qpos[0:7]
+
+    def get_robot_qvel(self, sim):
+        return sim.data.qvel[0:7]
 
     def render_frame(self, viewer, pos, mat):
         viewer.add_marker(pos=pos,
