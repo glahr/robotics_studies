@@ -227,7 +227,7 @@ class CtrlUtils:
             # mujoco_py.functions.mju_subQuat(self.error_r, quat_ref, quat_act)
             self.error_r = self.get_quat_error(quat_act, quat_ref)
             # self.error_rvel = w_ref - w_act
-            self.error_rvel = w_ref - 50*np.eye(3).dot(self.get_quat_error(quat_act, quat_ref))
+            self.error_rvel = w_ref - w_act - 40*np.eye(3).dot(self.get_quat_error(quat_act, quat_ref))
         else:
             qpos = self.get_robot_qpos(sim)
             qvel = self.get_robot_qvel(sim)
@@ -257,7 +257,7 @@ class CtrlUtils:
                 if i < 3:  # xyz
                     Kp[i, i] = self.kp
                 else:  # abc
-                    Kp[i, i] = self.kp
+                    Kp[i, i] = self.kp * 1.5
                 # self.Kp_rot[i,i] = self.kp
             else:
                 Kp[i, i] = self.kp * subtree_mass[i]
@@ -273,7 +273,7 @@ class CtrlUtils:
             Kd = np.eye(n_space)
             # self.Kd_rot = np.eye(n_space + 1)
             for i in range(n_space):
-                if i == 6:
+                if i == 6 and self.controller_type != CtrlType.INV_DYNAMICS_OP_SPACE:
                     Kd[i, i] = self.Kp[i, i] ** (0.005 / self.kp)
                 else:
                     Kd[i, i] = self.Kp[i, i] ** 0.5

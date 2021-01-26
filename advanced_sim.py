@@ -75,9 +75,12 @@ if __name__ == '__main__':
     xd[0] -= 0.05
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     xd[1] += 0.05
+    theta = np.pi/8
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
     xd[0] += 0.05
-    ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
+    ctrl.move_to_point(xd, xdmat.dot([[np.cos(theta), 0, np.sin(theta)],
+                      [0, 1, 0],
+                      [-np.sin(theta), 0, np.cos(theta)]]), sim, viewer=viewer)
     xd[1] -= 0.05
     ctrl.move_to_point(xd, xdmat, sim, viewer=viewer)
 
