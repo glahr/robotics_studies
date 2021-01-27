@@ -33,28 +33,29 @@ class CtrlUtils:
         # self.name_hole_base = self.sim.model.site_id2name(4)
 
         self.n_timesteps = int(simulation_time / self.dt)
+        self.nv = 7
 
         self.time_log = np.zeros((self.n_timesteps, 1))
-        self.H = np.zeros(self.sim.model.nv * self.sim.model.nv)  # inertia matrix
-        self.C = np.zeros((7,))  # Coriolis vector
-        self.qd = np.zeros((self.sim.model.nv,))
+        self.H = np.zeros(self.nv * self.nv)  # inertia matrix
+        self.C = np.zeros(self.nv)  # Coriolis vector
+        self.qd = np.zeros(self.nv)
         self.xd = np.zeros(3)
 
         self.controller_type = controller_type
 
         # Definition of step vectors.
         if True: # controller_type == 'independent_joints' or controller_type == 'inverse_dynamics':
-            self.q_ref = np.zeros(sim_handle.model.nv)
-            self.qvel_ref = np.zeros(sim_handle.model.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.qacc_ref = np.zeros(sim_handle.model.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.q_log = np.zeros((self.n_timesteps, sim_handle.model.nv))
-            self.error_int = np.zeros(sim_handle.model.nv)
-            self.error_q = np.zeros(sim_handle.model.nv)
-            self.error_qvel = np.zeros(sim_handle.model.nv)
-            self.error_q_int_ant = np.zeros(sim_handle.model.nv)
-            self.error_q_ant = np.zeros(sim_handle.model.nv)
-            self.last_qpos = np.zeros(sim_handle.model.nv)
-            self.qpos_int = np.zeros(sim_handle.model.nv)
+            self.q_ref = np.zeros(self.nv)
+            self.qvel_ref = np.zeros(self.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.qacc_ref = np.zeros(self.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.q_log = np.zeros((self.n_timesteps, self.nv))
+            self.error_int = np.zeros(self.nv)
+            self.error_q = np.zeros(self.nv)
+            self.error_qvel = np.zeros(self.nv)
+            self.error_q_int_ant = np.zeros(self.nv)
+            self.error_q_ant = np.zeros(self.nv)
+            self.last_qpos = np.zeros(self.nv)
+            self.qpos_int = np.zeros(self.nv)
 
         if True: #controller_type == 'inverse_dynamics_operational_space':
             self.x_ref = np.zeros((self.n_timesteps, 3))
@@ -302,8 +303,8 @@ class CtrlUtils:
         self.Ki = Ki
 
     def tau_g(self, sim):
-        Jp_shape = (3, sim.model.nv)
-        comp = np.zeros((sim.model.nv,))
+        Jp_shape = (3, self.nv)
+        comp = np.zeros((self.nv,))
         for body, mass in zip(self.name_bodies, self.mass_links):
             Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
             comp = comp - np.dot(Jp.T, sim.model.opt.gravity * mass)

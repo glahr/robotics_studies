@@ -35,6 +35,7 @@ if __name__ == '__main__':
     ctrl = CtrlUtils(sim, simulation_time=simulation_time, use_gravity=use_gravity,
                      plot_2d=plot_2d, use_kd=use_kd, use_ki=use_ki)
 
+    ctrl.controller_type = CtrlType.INDEP_JOINTS
     # Inverse dynamics in joint space
     qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     # qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
