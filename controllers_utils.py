@@ -97,54 +97,54 @@ class CtrlUtils:
         return self.Kp.dot(self.error_q) + self.Kd.dot(self.error_qvel) + self.Ki.dot(error_q_int)
 
     def ctrl_inverse_dynamics_operational_space(self, sim, k, xacc_ref, alpha_ref):
-        H = self.get_inertia_matrix(sim)
-        H_inv = np.linalg.inv(H)
-        C = self.get_coriolis_vector(sim)
+        # H = self.get_inertia_matrix(sim)
+        # H_inv = np.linalg.inv(H)
+        # C = self.get_coriolis_vector(sim)
         J = self.get_jacobian_site(sim)
-
-        if self.J_ant is None:
-            self.J_ant = np.zeros(J.shape)
-            J_dot = np.zeros(J.shape)
-        else:
-            J_dot = (J - self.J_ant) / self.dt
-            # self.J_ant = J
-
-        # J_inv = np.linalg.pinv(J)
-        J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
-        # Jt_inv = J_inv.T
-
-        # equations from Robotics Handbook chapter 3, section 3.3
-        H_op_space = np.linalg.pinv(J.dot(H_inv.dot(J.T)))
-
-        J_bar = H_inv.dot(J.T.dot(H_op_space))
-
-        # # Moore-penrose pseudoinverse
-        # A^# = (A^TA)^-1 * A^T with A = J^T
-        # JTpinv = np.linalg.inv(J * J.T) * J
-        # lambda_ = np.linalg.inv(J * M_inv * J.T)
         #
-        # # Null space projector
-        # N = (eye(6) - J.T * JTpinv)
-        # # null space torques (postural task)
-        # tau0 = 50 * (conf.q0 - q) - 10 * qd
-        # tau_null = N * tau0
-
-
+        # if self.J_ant is None:
+        #     self.J_ant = np.zeros(J.shape)
+        #     J_dot = np.zeros(J.shape)
+        # else:
+        #     J_dot = (J - self.J_ant) / self.dt
+        #     # self.J_ant = J
+        #
+        # # J_inv = np.linalg.pinv(J)
+        # J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
+        # # Jt_inv = J_inv.T
+        #
+        # # equations from Robotics Handbook chapter 3, section 3.3
+        # H_op_space = np.linalg.pinv(J.dot(H_inv.dot(J.T)))
+        #
+        # J_bar = H_inv.dot(J.T.dot(H_op_space))
+        #
+        # # # Moore-penrose pseudoinverse
+        # # A^# = (A^TA)^-1 * A^T with A = J^T
+        # # JTpinv = np.linalg.inv(J * J.T) * J
+        # # lambda_ = np.linalg.inv(J * M_inv * J.T)
+        # #
+        # # # Null space projector
+        # # N = (eye(6) - J.T * JTpinv)
+        # # # null space torques (postural task)
+        # # tau0 = 50 * (conf.q0 - q) - 10 * qd
+        # # tau_null = N * tau0
+        #
+        #
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
         tau0 = 20*(self.q_nullspace - self.get_robot_qpos(sim)) + 50*self.tau_g(sim)*0
         tau_null_space = projection_matrix_null_space.dot(tau0)
-
-        # H_op_space = Jt_inv.dot(H.dot(J_inv))
-        # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
-        # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
-
-        # OK: Khatib
-        # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(self.get_robot_qvel(sim)))
-
-        # OK: Handbook
-        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
+        #
+        # # H_op_space = Jt_inv.dot(H.dot(J_inv))
+        # # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
+        # # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
+        #
+        # # OK: Khatib
+        # # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(self.get_robot_qvel(sim)))
+        #
+        # # OK: Handbook
+        # C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
 
         v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              self.Kd.dot(np.concatenate((self.error_xvel, self.error_rvel))) +\
@@ -152,6 +152,12 @@ class CtrlUtils:
 
         # TODO: implement integrative control action for operational space
         # if self.use_ki:
+
+        sim.data.qacc[:] = v_
+
+        mujoco_py.functions.mj_inverse(sim.model, sim.data)
+
+        tau = sim.data.qfrc_inverse.copy()
 
         f = H_op_space.dot(v_) + C_op_space
 
@@ -169,8 +175,8 @@ class CtrlUtils:
         # return new_tau
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
-        H = self.get_inertia_matrix(sim)
-        C = self.get_coriolis_vector(sim)
+        # H = self.get_inertia_matrix(sim)
+        # C = self.get_coriolis_vector(sim)
 
         v_ = qacc_ref + self.Kd.dot(self.error_qvel) + self.Kp.dot(self.error_q)
 
@@ -180,7 +186,13 @@ class CtrlUtils:
             self.error_q_ant = self.error_q
             self.error_q_int_ant = self.error_int
 
-        tau = np.dot(H, v_) + C
+        # tau = np.dot(H, v_) + C
+
+        sim.data.qacc[:] = v_
+
+        mujoco_py.functions.mj_inverse(sim.model, sim.data)
+
+        tau = sim.data.qfrc_inverse.copy()
 
         return tau
 
