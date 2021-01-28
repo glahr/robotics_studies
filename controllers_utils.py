@@ -359,12 +359,11 @@ class CtrlUtils:
     def get_inertia_matrix(self, sim):
         # inertia matrix H
         mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
-        H_ = self.H.reshape(sim.model.nv, sim.model.nv)
-        return H_
+        return self.H.reshape(sim.model.nv, sim.model.nv)[:self.nv, :self.nv]
 
     def get_coriolis_vector(self, sim):
         # internal forces: Coriolis + gravitational
-        return sim.data.qfrc_bias
+        return sim.data.qfrc_bias[:self.nv]
 
     def get_jacobian_site(self, sim):
         Jp_shape = (3, sim.model.nv)
