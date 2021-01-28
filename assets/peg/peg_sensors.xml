@@ -1,4 +1,5 @@
 <mujoco>
   <force name="peg_force_sensor" site="peg_ft_site"/>
   <torque name="peg_torque_sensor" site="peg_ft_site"/>
+  <framepos name="peg_position_sensor" objtype="site" objname="peg_ft_site"/>
 </mujoco>

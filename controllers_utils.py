@@ -5,6 +5,11 @@ import roboticstoolbox as rtb
 import spatialmath as smath
 from enum import Enum, auto
 from copy import deepcopy
+from plots import displacement_plot
+
+time_k = []
+displacement_k = []
+
 
 class TrajectoryProfile(Enum):
     SPLINE3 = auto()
@@ -15,14 +20,15 @@ class CtrlType(Enum):
     INDEP_JOINTS = auto()
     INV_DYNAMICS = auto()
     INV_DYNAMICS_OP_SPACE = auto()
+    IMPEDANCE = auto()
 
 class CtrlUtils:
 
     def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
                  use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
-        self.nv = 7
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
+        self.nv = 7
         self.use_gravity = use_gravity
         self.plot_2d = plot_2d
         self.mass_links = self.sim.model.body_mass[4:11]
@@ -30,8 +36,6 @@ class CtrlUtils:
         self.xpos_kuka_base = self.sim.data.get_body_xpos('kuka_base')
         self.name_tcp = self.sim.model.site_id2name(1)
         self.name_ft_sensor = self.sim.model.site_id2name(2)
-        # self.name_hole_top = self.sim.model.site_id2name(3)
-        # self.name_hole_base = self.sim.model.site_id2name(4)
 
         self.n_timesteps = int(simulation_time / self.dt)
 
@@ -282,8 +286,8 @@ class CtrlUtils:
         self.Kd = Kd
 
     def tau_g(self, sim):
-        Jp_shape = (3, nv)
-        comp = np.zeros((nv,))
+        Jp_shape = (3, self.nv)
+        comp = np.zeros((self.nv,))
         for body, mass in zip(self.name_bodies, self.mass_links):
             Jp = sim.data.get_body_jacp(body).reshape(Jp_shape)
             comp = comp - np.dot(Jp.T, sim.model.opt.gravity * mass)
@@ -328,6 +332,10 @@ class CtrlUtils:
         mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
         return self.H.reshape(sim.model.nv, sim.model.nv)[:self.nv,:self.nv]
 
+        H_ = self.H[0:49].reshape(7,7) # sim.model.nv
+
+        return H_
+
     def get_coriolis_vector(self, sim):
         # internal forces: Coriolis + gravitational
         return sim.data.qfrc_bias[:self.nv]
@@ -368,7 +376,7 @@ class CtrlUtils:
     #     q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
     #     return q_next
 
-    def move_to_joint_pos(self, sim, xd=None, xdmat=None, qd=None, viewer=None, eps=1.5*np.pi/180):
+    def move_to_joint_pos(self, sim, box=None, xd=None, xdmat=None, qd=None, viewer=None, eps=3*np.pi/180):
         if qd is not None:
             self.qd = qd
         if xd is not None:
@@ -383,8 +391,12 @@ class CtrlUtils:
             # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.traj_joint_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
+            time_k.append(sim.data.time)
+            displacement_k.append(sim.data.sensordata[6])
 
             if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
+                if box is not None:
+                    displacement_plot(time_k, displacement_k, box)
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -399,6 +411,7 @@ class CtrlUtils:
             k += 1
             # TODO: create other stopping criteria
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+                displacement_plot(time_k, displacement_k, box)
                 return
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):
