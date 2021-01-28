@@ -36,9 +36,8 @@ class CtrlUtils:
         self.n_timesteps = int(simulation_time / self.dt)
 
         self.time_log = np.zeros((self.n_timesteps, 1))
-        self.H = np.zeros(self.nv * self.nv)  # inertia matrix
-        self.C = np.zeros((7,))  # Coriolis vector
-        self.qd = np.zeros((self.nv,))
+        self.H = np.zeros(sim_handle.model.nv * sim_handle.model.nv)  # inertia matrix
+        self.qd = np.zeros(self.nv)
         self.xd = np.zeros(3)
 
         self.controller_type = controller_type
@@ -326,13 +325,12 @@ class CtrlUtils:
 
     def get_inertia_matrix(self, sim):
         # inertia matrix H
-        mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM[:28])
-        H_ = self.H.reshape(self.nv, self.nv)
-        return H_
+        mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
+        return self.H.reshape(sim.model.nv, sim.model.nv)[:self.nv,:self.nv]
 
     def get_coriolis_vector(self, sim):
         # internal forces: Coriolis + gravitational
-        return sim.data.qfrc_bias
+        return sim.data.qfrc_bias[:self.nv]
 
     def get_jacobian_site(self, sim):
         Jp_shape = (3, self.nv)
