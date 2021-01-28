@@ -49,6 +49,13 @@ if __name__ == '__main__':
     qd[5] += np.pi/2
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
+    xd, xdmat = ctrl.get_site_pose(sim)
+
+    xd[0] += 0.05
+    xd[1] -= 0.05
+    print("aqui 1")
+    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat)
+    print("aqui 2")
 
     # IMPEDANCE CONTROL
     #ctrl.use_ki = False
