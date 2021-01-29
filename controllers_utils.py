@@ -332,10 +332,6 @@ class CtrlUtils:
         mujoco_py.functions.mj_fullM(sim.model, self.H, sim.data.qM)
         return self.H.reshape(sim.model.nv, sim.model.nv)[:self.nv,:self.nv]
 
-        H_ = self.H[0:49].reshape(7,7) # sim.model.nv
-
-        return H_
-
     def get_coriolis_vector(self, sim):
         # internal forces: Coriolis + gravitational
         return sim.data.qfrc_bias[:self.nv]
