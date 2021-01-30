@@ -97,26 +97,26 @@ class CtrlUtils:
         return self.Kp.dot(self.error_q) + self.Kd.dot(self.error_qvel) + self.Ki.dot(error_q_int)
 
     def ctrl_inverse_dynamics_operational_space(self, sim, k, xacc_ref, alpha_ref):
-        # H = self.get_inertia_matrix(sim)
-        # H_inv = np.linalg.inv(H)
-        # C = self.get_coriolis_vector(sim)
+        H = self.get_inertia_matrix(sim)
+        H_inv = np.linalg.inv(H)
+        C = self.get_coriolis_vector(sim)
         J = self.get_jacobian_site(sim)
         #
-        # if self.J_ant is None:
-        #     self.J_ant = np.zeros(J.shape)
-        #     J_dot = np.zeros(J.shape)
-        # else:
-        #     J_dot = (J - self.J_ant) / self.dt
-        #     # self.J_ant = J
-        #
-        # # J_inv = np.linalg.pinv(J)
-        # J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
-        # # Jt_inv = J_inv.T
-        #
-        # # equations from Robotics Handbook chapter 3, section 3.3
-        # H_op_space = np.linalg.pinv(J.dot(H_inv.dot(J.T)))
-        #
-        # J_bar = H_inv.dot(J.T.dot(H_op_space))
+        if self.J_ant is None:
+            self.J_ant = np.zeros(J.shape)
+            J_dot = np.zeros(J.shape)
+        else:
+            J_dot = (J - self.J_ant) / self.dt
+            # self.J_ant = J
+
+        # J_inv = np.linalg.pinv(J)
+        J_inv = J.T.dot(np.linalg.inv(J.dot(J.T)))
+        # Jt_inv = J_inv.T
+
+        # equations from Robotics Handbook chapter 3, section 3.3
+        H_op_space = np.linalg.pinv(J.dot(H_inv.dot(J.T)))
+
+        J_bar = H_inv.dot(J.T.dot(H_op_space))
         #
         # # # Moore-penrose pseudoinverse
         # # A^# = (A^TA)^-1 * A^T with A = J^T
@@ -133,7 +133,7 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        tau0 = 20*(self.q_nullspace - self.get_robot_qpos(sim)) + 50*self.tau_g(sim)*0
+        tau0 = 20*(self.q_nullspace - self.get_robot_qpos(sim)) + 50*self.tau_g(sim)*0 - 0*np.eye(7).dot(self.get_robot_qvel(sim))
         tau_null_space = projection_matrix_null_space.dot(tau0)
         #
         # # H_op_space = Jt_inv.dot(H.dot(J_inv))
@@ -144,7 +144,7 @@ class CtrlUtils:
         # # C_op_space = J_bar.T.dot(C) - H_op_space.dot(J_dot.dot(self.get_robot_qvel(sim)))
         #
         # # OK: Handbook
-        # C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
+        C_op_space = H_op_space.dot(J.dot(H_inv.dot(C))-J_dot.dot(self.get_robot_qvel(sim)))
 
         v_ = np.concatenate((xacc_ref, alpha_ref)) +\
              self.Kd.dot(np.concatenate((self.error_xvel, self.error_rvel))) +\
@@ -153,11 +153,11 @@ class CtrlUtils:
         # TODO: implement integrative control action for operational space
         # if self.use_ki:
 
-        sim.data.qacc[:] = v_
-
-        mujoco_py.functions.mj_inverse(sim.model, sim.data)
-
-        tau = sim.data.qfrc_inverse.copy()
+        # sim.data.qacc[:] = v_
+        #
+        # mujoco_py.functions.mj_inverse(sim.model, sim.data)
+        #
+        # tau = sim.data.qfrc_inverse.copy()
 
         f = H_op_space.dot(v_) + C_op_space
 
@@ -175,8 +175,8 @@ class CtrlUtils:
         # return new_tau
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
-        # H = self.get_inertia_matrix(sim)
-        # C = self.get_coriolis_vector(sim)
+        H = self.get_inertia_matrix(sim)
+        C = self.get_coriolis_vector(sim)
 
         v_ = qacc_ref + self.Kd.dot(self.error_qvel) + self.Kp.dot(self.error_q)
 
@@ -186,13 +186,13 @@ class CtrlUtils:
             self.error_q_ant = self.error_q
             self.error_q_int_ant = self.error_int
 
-        # tau = np.dot(H, v_) + C
+        tau = np.dot(H, v_) + C
 
-        sim.data.qacc[:] = v_
-
-        mujoco_py.functions.mj_inverse(sim.model, sim.data)
-
-        tau = sim.data.qfrc_inverse.copy()
+        # sim.data.qacc[:] = v_
+        #
+        # mujoco_py.functions.mj_inverse(sim.model, sim.data)
+        #
+        # tau = sim.data.qfrc_inverse.copy()
 
         return tau
 
@@ -237,7 +237,7 @@ class CtrlUtils:
             self.error_x = x_ref[:3] - xpos_act
             self.error_xvel = xvel_ref[:3] - xvel_act
             quat_act = self.get_site_quat_from_mat(sim, self.name_tcp)
-            # mujoco_py.functions.mju_subQuat(self.error_r, quat_ref, quat_act)
+            # mujoco_py.functions.mju_subQuat(self.error_r, quat_ref.A, quat_act)
             self.error_r = self.get_quat_error(quat_act, quat_ref)
             # self.error_rvel = w_ref - w_act
             self.error_rvel = w_ref - w_act - 40*np.eye(3).dot(self.get_quat_error(quat_act, quat_ref))
@@ -409,7 +409,7 @@ class CtrlUtils:
         # trajectory = TrajectoryJoint(self.qd, ti=sim.data.time, q0=self.get_robot_qpos(sim), traj_profile=TrajectoryProfile.SPLINE3)
         self.iiwa_kin.traj_joint_generate(self.qd, np.asarray(self.get_robot_qpos(sim)))
 
-        k = 1
+        k = 0
 
         while True:
             # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
@@ -439,18 +439,17 @@ class CtrlUtils:
         # x_act = sim.data.get_site_xpos(self.name_tcp)
         k = 0
         # x_act_mat = sim.data.get_site_xmat(self.name_tcp)
-        trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
-                                           pose0=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
-        # self.iiwa_kin.traj_cart_generate(xd, xdmat, x_act, x_act_mat)
+        # trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
+        #                                    pose0=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
+        self.iiwa_kin.traj_cart_generate(xd, xdmat, x_act, x_act_mat, tmax=0.5)
         self.kp = 500
         self.get_pd_matrices()
         eps = 0.003
-
         self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
 
         while True:
-            kinematics = trajectory.next()
-            # kinematics =
+            # kinematics = trajectory.next()
+            kinematics = self.iiwa_kin.traj_cart_get_point()
             self.calculate_errors(sim, k, kin=kinematics)
 
             # TODO: implement orientation error stopping criteria
@@ -503,7 +502,7 @@ class CtrlUtils:
 
     def get_quat_error(self, quat_act, quat_ref):
         q = quat_act
-        qd = quat_ref
+        qd = quat_ref.A
         # q_error = np.concatenate((eta ,eps))
         q_error = qd[0] * q[1:] - q[0] * qd[1:] + smath.base.skew(qd[1:]).dot(q[1:])
         return q_error
@@ -691,8 +690,16 @@ class KinematicsIiwa:
         self.q = None
         self.qvel = None
         self.qacc = None
-        self.traj = None
+        self.trajx = None
+        self.q0 = None
+        self.qf = None
+        self.T0 = None
+        self.Tf = None
         self.n = 500
+        self.v = np.zeros(3)
+        self.a = np.zeros(3)
+        self.w = np.zeros(3)
+        self.alpha = np.zeros(3)
 
     def ik_iiwa(self, xd, xdmat, q0=np.zeros(7)):
         Td = self.create_T(xd, xdmat)
@@ -703,8 +710,9 @@ class KinematicsIiwa:
         fk = self.iiwa.fkine(qd)
         return fk.t, fk.R
 
-    def traj_joint_generate(self, qd, q0, t=2):
-        self.k = 0
+    def traj_joint_generate(self, qd, q0, t=2, dt=0.002):
+        self.k = 1
+        self.n = int(t/dt)
         _, self.q, self.qvel, self.qacc = rtb.trajectory.jtraj(q0=q0, qf=qd, tv=np.linspace(0, t, self.n))
 
     def traj_joint_get_point(self):
@@ -717,26 +725,15 @@ class KinematicsIiwa:
         return T
 
     def traj_cart_generate(self, xd, xdmat, x0, x0mat, dt=0.002, tmax=2):
-        T0 = self.create_T(x0, x0mat)
-        Tf = self.create_T(xd, xdmat)
-        self.traj = rtb.trajectory.ctraj(T0, Tf, int(tmax/dt))
+        self.T0 = self.create_T(x0, x0mat)
+        self.Tf = self.create_T(xd, xdmat)
+        self.n = int(tmax / dt)
+        self.k = -1  # restart k for interpolation
 
     def traj_cart_get_point(self, dt=0.002):
-        x = self.traj[self.k].t
-        if self.k > 1:
-            v = (self.traj[self.k].t - self.traj[self.k-1].t)/dt
-        else:
-            v = np.zeros(3)
-        if self.k > 2:
-            a = (self.traj[self.k].t - 2*self.traj[self.k-1].t + self.traj[self.k-2].t)/dt
-        else:
-            a = np.zeros(3)
-
-
-
-        if self.k < self.n:
+        if self.k < self.n-1:
             self.k += 1
-        return
-
-
-    # TODO: implement ctraj()
+        T = self.Tf.interp(s=self.k/self.n, start=self.T0)
+        quat_d = smath.quaternion.UnitQuaternion(T.R)
+        x = T.t
+        return x, self.v, self.a, quat_d, self.w, self.alpha
