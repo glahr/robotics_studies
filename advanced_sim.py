@@ -4,6 +4,7 @@ import numpy as np
 from numpy import pi
 from controllers_utils import CtrlUtils, CtrlType
 
+
 def load_model_mujoco(simulate, use_gravity):
     model_name = "assets/full_kuka_all_joints"
     if use_gravity:
@@ -15,6 +16,7 @@ def load_model_mujoco(simulate, use_gravity):
     else:
         viewer = None
     return sim, viewer
+
 
 def my_rand_pos():
     # qd = np.random.rand(7) - 0.5
@@ -30,6 +32,7 @@ def my_rand_pos():
     qd = qd + np.array([np.random.rand()-0.5 for _ in range(7)])
 
     return qd
+
 
 if __name__ == '__main__':
 
@@ -55,14 +58,25 @@ if __name__ == '__main__':
     qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi/2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
+
+    # standard trajectory
     xd, xdmat = ctrl.get_site_pose(sim)
-    xd[0] += 0.1
-    xd[1] += 0.1
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # sim.data.mocap_pos[0] = np.array([0.4, 0.5, 1.35])
+    ctrl.move_to_point(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    xd[0] += 0.3
+    xd[1] += 0.3
+    xd[2] -= 0.45
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    ctrl.move_to_point(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    xd[1] -= 0.44
+    # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
 
-    # xd[0] -= 0.05
-    ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+
+
+
+
+
     # xd[1] += 0.05
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
     # xd[0] += 0.05

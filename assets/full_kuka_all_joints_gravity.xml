@@ -33,11 +33,15 @@
       </body>
     </body>
     <!-- <body name="experiment_table" pos="1.2 0 1">
-      <geom type="box" size=".5 .5 .5" pos="0 0 -.5"/>
-      <body pos="-.4 0 0">
-        <include file="hole/polyhedral_hole_inner=0-0068_outer=0-05_height=0-05_num_facets=16.xml"/>
-      </body>
-    </body> -->
+      <geom type="box" size=".5 .5 .5" pos="0 0 -.5"/> -->
+
+     <!--<body pos=".4 0 1.35" mocap="true">
+	<geom name="head" pos="0 0 0" type="sphere" size="0.1" rgba="1 1 0 1"/>
+      </body>-->
+
+    <!-- <body pos=".4 0 1.35">
+	<geom name="head" pos="0 0 0" type="sphere" size="0.1" rgba="1 1 0 1"/>
+      </body>-->
   </worldbody>
 
   <actuator>
