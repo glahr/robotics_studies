@@ -133,12 +133,13 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        # tau0 = 20*np.asarray(self.q_nullspace - self.get_robot_qpos(sim)).T.dot(self.q_nullspace - self.get_robot_qpos(sim))\
-        tau0 = 20 * (self.q_nullspace - self.get_robot_qpos(sim)) \
-               + 50*self.tau_g(sim)*0\
-               - 0*np.eye(7).dot(self.get_robot_qvel(sim))
+        tau0 = 0*(self.q_nullspace - self.get_robot_qpos(sim))
+        # q_nullspace = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0]) + np.pi / 6 * np.ones(7)
+        # tau0 = 20*(q_nullspace - self.get_robot_qpos(sim))
+               # + 50*self.tau_g(sim)*0\
+               # - 0*np.eye(7).dot(self.get_robot_qvel(sim))
         tau_null_space = projection_matrix_null_space.dot(tau0)
-        #
+
         # # H_op_space = Jt_inv.dot(H.dot(J_inv))
         # # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
         # # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
@@ -164,7 +165,7 @@ class CtrlUtils:
 
         f = H_op_space.dot(v_) + C_op_space
 
-        tau = J.T.dot(f)  # + C
+        tau_inv_dyn = J.T.dot(f)  # + C
 
         # joint torque limiting if needed
         # tau_max = 50
@@ -174,7 +175,7 @@ class CtrlUtils:
 
         # new_tau = H.dot(J_inv.dot(v_) - J_dot.dot(self.get_robot_qvel(sim))) + C
         #
-        return tau + tau_null_space
+        return tau_inv_dyn + tau_null_space
         # return new_tau
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
@@ -437,6 +438,8 @@ class CtrlUtils:
                 return
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):
+        # if self.controller_type  CtrlType.INV_DYNAMICS_OP_SPACE:
+        #     self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE
         self.xd = xd
         x_act, x_act_mat = self.get_site_pose(sim)
         # x_act = sim.data.get_site_xpos(self.name_tcp)
@@ -445,10 +448,10 @@ class CtrlUtils:
         # trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
         #                                    pose0=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
         self.iiwa_kin.traj_cart_generate(xd, xdmat, x_act, x_act_mat, tmax=0.5)
-        self.kp = 500
+        self.kp = 200
         self.get_pd_matrices()
         eps = 0.003
-        self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
+        # self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
 
         while True:
             # kinematics = trajectory.next()
@@ -456,8 +459,8 @@ class CtrlUtils:
             self.calculate_errors(sim, k, kin=kinematics)
 
             # TODO: implement orientation error stopping criteria
-            if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
-                return
+            # if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
+            #     return
 
             u = self.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])
             sim.data.ctrl[:] = u

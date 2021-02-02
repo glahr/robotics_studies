@@ -60,15 +60,21 @@ if __name__ == '__main__':
 
 
     # standard trajectory
+
     xd, xdmat = ctrl.get_site_pose(sim)
     # sim.data.mocap_pos[0] = np.array([0.4, 0.5, 1.35])
-    ctrl.move_to_point(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
-    xd[0] += 0.3
-    xd[1] += 0.3
-    xd[2] -= 0.45
+    xd[0] += 0.1
+    xd[2] -= 0.25
+    ctrl.move_to_joint_pos(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # xd[0] += 0.1
+    # xd[1] += 0.3
+    # xd[2] -= 0.45
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
+    # ctrl.move_to_point(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
+
+    # ctrl.q_nullspace = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0]) + np.pi/6 * np.ones(7)
+    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
     ctrl.move_to_point(sim=sim, xd=xd, xdmat=xdmat, viewer=viewer)
-    xd[1] -= 0.44
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
 
