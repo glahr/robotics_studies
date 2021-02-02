@@ -175,8 +175,8 @@ class CtrlUtils:
         # return new_tau
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
-        # H = self.get_inertia_matrix(sim)
-        # C = self.get_coriolis_vector(sim)
+        H = self.get_inertia_matrix(sim)
+        C = self.get_coriolis_vector(sim)
 
         v_ = qacc_ref + self.Kd.dot(self.error_qvel) + self.Kp.dot(self.error_q)
 
@@ -186,13 +186,13 @@ class CtrlUtils:
             self.error_q_ant = self.error_q
             self.error_q_int_ant = self.error_int
 
-        # tau = np.dot(H, v_) + C
+        tau = np.dot(H, v_) + C
 
-        sim.data.qacc[:] = v_
-
-        mujoco_py.functions.mj_inverse(sim.model, sim.data)
-
-        tau = sim.data.qfrc_inverse.copy()
+        # sim.data.qacc[:] = v_
+        #
+        # mujoco_py.functions.mj_inverse(sim.model, sim.data)
+        #
+        # tau = sim.data.qfrc_inverse.copy()
 
         return tau
 
