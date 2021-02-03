@@ -4,24 +4,28 @@ import numpy as np
 from controllers_utils import CtrlUtils, CtrlType
 from draw import reference
 from plots import displacement_plot
+from soft_body_complete_analyses import soft_body
+from soft_body_complete_analyses import reference_guide
 
-reference()
 
-def load_model_mujoco(simulate, use_gravity, box=None):
-    dict = {
-        1: "assets/full_kuka_all_joints_soft_body_part_one",
-        2: "assets/full_kuka_all_joints_soft_body_part_two",
-        3: "assets/full_kuka_all_joints_soft_body_part_three",
-        4: "assets/full_kuka_all_joints_soft_body_part_four",
-        5: "assets/full_kuka_all_joints_soft_body_part_five",
-        6: "assets/full_kuka_all_joints_soft_body_part_six",
-        7: "assets/full_kuka_all_joints_soft_body_part_seven",
-        8: "assets/full_kuka_all_joints_soft_body_part_eight",
-        9: "assets/full_kuka_all_joints_soft_body_part_nine",
-        10: "assets/full_kuka_all_joints"
-    }
+# reference()
 
-    model_name = dict.get(box)
+def load_model_mujoco(simulate, use_gravity): #, box=None
+    # dict = {
+    #     1: "assets/full_kuka_all_joints_soft_body_part_one",
+    #     2: "assets/full_kuka_all_joints_soft_body_part_two",
+    #     3: "assets/full_kuka_all_joints_soft_body_part_three",
+    #     4: "assets/full_kuka_all_joints_soft_body_part_four",
+    #     5: "assets/full_kuka_all_joints_soft_body_part_five",
+    #     6: "assets/full_kuka_all_joints_soft_body_part_six",
+    #     7: "assets/full_kuka_all_joints_soft_body_part_seven",
+    #     8: "assets/full_kuka_all_joints_soft_body_part_eight",
+    #     9: "assets/full_kuka_all_joints_soft_body_part_nine",
+    #     10: "assets/full_kuka_all_joints"
+    # }
+
+    #model_name = dict.get(box)
+    model_name = sf.xml_model()
 
     if use_gravity:
         model_name += "_gravity"
@@ -50,10 +54,11 @@ if __name__ == '__main__':
     # controller_type = CtrlType.INV_DYNAMICS
     # controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
 
-
+    reference_guide()
     box = int(input("Enter the number of box to be analyzed (number 10 are all boxes): "))
+    sf = soft_body(box)
 
-    sim, viewer = load_model_mujoco(show_simulation, use_gravity, box=box)
+    sim, viewer = load_model_mujoco(show_simulation, use_gravity) #, box=box
     sim.step()  # single step for operational space update
     ctrl = CtrlUtils(sim, simulation_time=simulation_time, use_gravity=use_gravity,
                      plot_2d=plot_2d, use_kd=use_kd, use_ki=use_ki)
