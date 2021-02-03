@@ -68,7 +68,8 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(sim, xd=xd, xdmat=xdmat, viewer=viewer)
 
     # Operational space control
-    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    # ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    ctrl.controller_type = CtrlType.IMPEDANCE
     xd = np.array([4.01863413e-01, -4.95389989e-05, 1.53277615e+00])
     xdmat = np.array([[ 0.99995499, -0.00210169,  0.00925189],
                       [-0.00209056, -0.99999708, -0.0012129 ],

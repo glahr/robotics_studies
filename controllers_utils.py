@@ -6,15 +6,19 @@ import spatialmath as smath
 from enum import Enum, auto
 from copy import deepcopy
 
+
 class TrajectoryProfile(Enum):
     SPLINE3 = auto()
     SPLINE5 = auto()
     STEP    = auto()
 
+
 class CtrlType(Enum):
     INDEP_JOINTS = auto()
     INV_DYNAMICS = auto()
     INV_DYNAMICS_OP_SPACE = auto()
+    IMPEDANCE = auto()
+
 
 class CtrlUtils:
 
@@ -40,6 +44,11 @@ class CtrlUtils:
         self.C = np.zeros(self.nv)  # Coriolis vector
         self.qd = np.zeros(self.nv)
         self.xd = np.zeros(3)
+        self.M = np.eye(6)
+        self.B = np.eye(6)
+        self.B_null = np.eye(7)
+        self.K_null = np.eye(7)
+        self.K = np.eye(6)
 
         self.controller_type = controller_type
 
@@ -96,6 +105,61 @@ class CtrlUtils:
         self.error_q_int_ant = error_q_int
         return self.Kp.dot(self.error_q) + self.Kd.dot(self.error_qvel) + self.Ki.dot(error_q_int)
 
+    def ctrl_impedance(self, sim):
+        H = self.get_inertia_matrix(sim)
+        C = self.get_coriolis_vector(sim)
+        J = self.get_jacobian_site(sim)
+
+        # Compute generalized forces from a virtual external force.
+        dx = np.concatenate((self.error_x, self.error_r))
+        dv = np.concatenate((self.error_xvel, self.error_rvel))
+        cartesian_acc_d = self.K.dot(dx) + self.B.dot(dv)
+
+        impedance_acc_d = J.T.dot(np.linalg.solve(J.dot(J.T) + 1e-6 * np.eye(6), cartesian_acc_d))  # joints
+
+        # Add stiffness and damping in the null space of the the Jacobian
+        projection_matrix = np.eye(self.nv) - J.T.dot(np.linalg.solve(J.dot(J.T), J))
+        null_space_control = - self.B_null.dot(self.get_robot_qvel(sim))  # damping
+        null_space_control += self.K_null.dot(self.q_nullspace*0 - self.get_robot_qpos(sim))
+        impedance_acc_d += projection_matrix.dot(null_space_control)
+
+        tau = H.dot(impedance_acc_d) + C + J.T.dot(sim.data.sensordata)
+
+        # # trial 2
+        # H = self.get_inertia_matrix(sim)
+        # H_inv = np.linalg.inv(H)
+        # C = self.get_coriolis_vector(sim)
+        # J = self.get_jacobian_site(sim)
+        # H_op_space = np.linalg.pinv(J.dot(H_inv.dot(J.T)))
+        #
+        # if self.J_ant is None:
+        #     self.J_ant = np.zeros(J.shape)
+        #     J_dot = np.zeros(J.shape)
+        # else:
+        #     J_dot = (J - self.J_ant) / self.dt
+        #     # self.J_ant = J
+        #
+        # C_op_space = H_op_space.dot(J.dot(H_inv.dot(C)) - J_dot.dot(self.get_robot_qvel(sim)))
+        #
+        # # Compute generalized forces from a virtual external force.
+        # dx = np.concatenate((self.error_x, self.error_r))
+        # dv = np.concatenate((self.error_xvel, self.error_rvel))
+        # cartesian_acc_d = self.K.dot(dx) + self.B.dot(dv)
+        #
+        # impedance_acc_d = np.linalg.solve(J.dot(J.T) + 1e-6 * np.eye(6), cartesian_acc_d)
+        #
+        # # Add stiffness and damping in the null space of the the Jacobian
+        # projection_matrix = np.eye(self.nv) - J.T.dot(np.linalg.solve(J.dot(J.T), J))
+        # null_space_control = - self.B_null.dot(self.get_robot_qvel(sim))  # damping
+        # null_space_control += self.K_null.dot(self.q_nullspace - self.get_robot_qpos(sim))
+        # impedance_acc_d_null = projection_matrix.dot(null_space_control)
+        #
+        # hc = H_op_space.dot(impedance_acc_d) + C_op_space  # + f_ext
+        #
+        # tau = J.T.dot(hc) + impedance_acc_d_null
+
+        return tau
+
     def ctrl_inverse_dynamics_operational_space(self, sim, k, xacc_ref, alpha_ref):
         H = self.get_inertia_matrix(sim)
         H_inv = np.linalg.inv(H)
@@ -133,9 +197,13 @@ class CtrlUtils:
         # NULL SPACE
         # projection_matrix_null_space = np.eye(7) - J_bar.dot(J)
         projection_matrix_null_space = np.eye(7) - J.T.dot(np.linalg.pinv(J.T))
-        tau0 = 20*(self.q_nullspace - self.get_robot_qpos(sim)) + 50*self.tau_g(sim)*0 - 0*np.eye(7).dot(self.get_robot_qvel(sim))
+        tau0 = 20*(self.q_nullspace - self.get_robot_qpos(sim))
+        # q_nullspace = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0]) + np.pi / 6 * np.ones(7)
+        # tau0 = 20*(q_nullspace - self.get_robot_qpos(sim))
+               # + 50*self.tau_g(sim)*0\
+               # - 0*np.eye(7).dot(self.get_robot_qvel(sim))
         tau_null_space = projection_matrix_null_space.dot(tau0)
-        #
+
         # # H_op_space = Jt_inv.dot(H.dot(J_inv))
         # # C_op_space = (np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))).dot(J.dot(self.get_robot_qvel(sim)))
         # # C_op_space = np.linalg.pinv(J.T).dot(C.dot(J_inv)) - H_op_space.dot(J.dot(J_inv))
@@ -161,7 +229,7 @@ class CtrlUtils:
 
         f = H_op_space.dot(v_) + C_op_space
 
-        tau = J.T.dot(f)  # + C
+        tau_inv_dyn = J.T.dot(f)  # + C
 
         # joint torque limiting if needed
         # tau_max = 50
@@ -171,7 +239,7 @@ class CtrlUtils:
 
         # new_tau = H.dot(J_inv.dot(v_) - J_dot.dot(self.get_robot_qvel(sim))) + C
         #
-        return tau + tau_null_space
+        return tau_inv_dyn + tau_null_space
         # return new_tau
 
     def ctrl_inverse_dynamics(self, sim, qacc_ref):
@@ -224,10 +292,15 @@ class CtrlUtils:
                 self.get_pd_matrices()
             u = self.ctrl_inverse_dynamics_operational_space(sim, k, xacc_ref=xacc_ref, alpha_ref=alpha_ref)
 
+        if self.controller_type == CtrlType.IMPEDANCE:
+            if self.Kp is None:
+                self.get_pd_matrices()
+            u = self.ctrl_impedance(sim)
+
         return u
 
     def calculate_errors(self, sim, k,  qpos_ref=0, qvel_ref=0, kin=0):
-        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE:
+        if self.controller_type == CtrlType.INV_DYNAMICS_OP_SPACE or self.controller_type == CtrlType.IMPEDANCE:
             x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref = kin
             J = self.get_jacobian_site(sim)
             w_act = J.dot(self.get_robot_qvel(sim))[3:]
@@ -313,6 +386,22 @@ class CtrlUtils:
             Ki = np.zeros((n_space, n_space))
 
         self.Ki = Ki
+
+    def get_mbk(self):
+        self._get_m()
+        self._get_b()
+        self._get_k()
+
+    def _get_m(self):
+        self.M *= 10
+
+    def _get_b(self):
+        self.B *= 100
+        self.B_null *= 20
+
+    def _get_k(self):
+        self.K *= 1000
+        self.K_null *= 20
 
     def tau_g(self, sim):
         Jp_shape = (3, self.nv)
@@ -442,8 +531,11 @@ class CtrlUtils:
         # trajectory = TrajectoryOperational((xd, xdmat), ti=sim.data.time,
         #                                    pose0=(x_act, x_act_mat), traj_profile=TrajectoryProfile.SPLINE3)
         self.iiwa_kin.traj_cart_generate(xd, xdmat, x_act, x_act_mat, tmax=0.5)
-        self.kp = 500
-        self.get_pd_matrices()
+        self.kp = 200
+        if self.controller_type == CtrlType.IMPEDANCE:
+            self.get_mbk()
+        else:
+            self.get_pd_matrices()
         eps = 0.003
         self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat, q0=self.get_robot_qpos(sim))[0]
 
@@ -453,11 +545,12 @@ class CtrlUtils:
             self.calculate_errors(sim, k, kin=kinematics)
 
             # TODO: implement orientation error stopping criteria
-            if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
-                return
+            # if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
+            if sim.data.time > 3:
+                sim.data.qfrc_applied[:] = self.get_jacobian_site(sim).T.dot(np.array([20*np.sin(sim.data.time), 0, 0, 0, 0, 0]))
+                # return
 
-            u = self.ctrl_action(sim, k, xacc_ref=kinematics[2],
-                                 alpha_ref=kinematics[5])
+            u = self.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])
             sim.data.ctrl[:] = u
             self.step(sim, k)
             if viewer is not None:
