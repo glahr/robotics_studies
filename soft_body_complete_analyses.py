@@ -26,6 +26,28 @@ def reference_guide():
     #         if event.type == pygame.QUIT:
     #             running = False
 
+def counting_words(f):
+
+    y = 1
+    t = 0
+    i = f.read(1)
+
+    while i != " " and t == 0:
+        y += 1
+        i = f.read(1)
+
+    i = f.read(1)
+    while i != "\n":
+        t += 1
+        i = f.read(1)
+
+    print("")
+    # print(f.read(1))
+    # print(f.read(1))
+
+    print("valores das palavras: " + str(y) + "  " + str(t))
+
+    return y, t
 
 class soft_body:
 
@@ -46,10 +68,16 @@ class soft_body:
             10: "assets/full_kuka_all_joints"
         }
 
-        model_name = dict.get(self.box)
-        return model_name
+        return dict.get(self.box)
 
-    def displacement_plot(self, displacement, time,):
+    def creating_files(self):
+        open("displacement.txt", "x")
+
+    def displacement_plot(self):
+        f = open("displacement.txt", "r")
+        displacement = []
+        time = []
+
         title = "stiffness of" + " " + str(self.box)
         plt.plot(time, displacement, 'b', linewidth=2.0)
         # plt.setp(color='b', linewidth=2.0)

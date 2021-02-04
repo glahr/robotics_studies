@@ -383,16 +383,30 @@ class CtrlUtils:
 
         k = 1
 
+        f = open("displacement.txt", "a")
+
         while True:
             # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.traj_joint_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
             time_k.append(sim.data.time)
             displacement_k.append(sim.data.sensordata[6])
+            str_value = str(sim.data.sensordata[6])
+            str_value_time = str(sim.data.time)
+            f.write(str_value)
+            f.write(" ")
+            f.write(str_value_time)
+            f.write("\n")
 
             if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
                 if box is not None:
                     displacement_plot(time_k, displacement_k, box)
+                    str_value = str(sim.data.sensordata[6])
+                    str_value_time = str(sim.data.time)
+                    f.write(str_value)
+                    f.write(" ")
+                    f.write(str_value_time)
+                    f.write("\n")
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -408,7 +422,15 @@ class CtrlUtils:
             # TODO: create other stopping criteria
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
                 displacement_plot(time_k, displacement_k, box)
+                str_value = str(sim.data.sensordata[6])
+                str_value_time = str(sim.data.time)
+                f.write(str_value)
+                f.write(" ")
+                f.write(str_value_time)
+                f.write("\n")
                 return
+
+        f.close()
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):
         self.xd = xd

@@ -6,6 +6,7 @@ from draw import reference
 from plots import displacement_plot
 from soft_body_complete_analyses import soft_body
 from soft_body_complete_analyses import reference_guide
+from soft_body_complete_analyses import counting_words
 
 
 # reference()
@@ -57,6 +58,10 @@ if __name__ == '__main__':
     reference_guide()
     box = int(input("Enter the number of box to be analyzed (number 10 are all boxes): "))
     sf = soft_body(box)
+    try:
+        open("displacement.txt", "r")
+    except IOError:
+        sf.creating_files()
 
     sim, viewer = load_model_mujoco(show_simulation, use_gravity) #, box=box
     sim.step()  # single step for operational space update
@@ -119,6 +124,34 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
     print(sim.data.sensordata)
     print(sim.data.sensordata[6:])
+    f = open("displacement.txt", "r")
+    y, t = counting_words(f)
+    print(f.tell())
+    p = f.tell()
+    f.seek((f.tell()-(y + t + 1)), 0)
+    print(f.read(y))
+    # print(f.read(1))
+    print(f.read(t))
+    f.seek(p, 0)
+    print(f.tell())
+    f.seek(116,0)
+    y, t = counting_words(f)
+    print(f.tell())
+    p = f.tell()
+    f.seek((f.tell() - (y + t + 1)), 0)
+    print(f.read(y))
+    # print(f.read(1))
+    print(f.read(t))
+    f.seek(p, 0)
+    print(f.tell())
+    y, t = counting_words(f)
+    print(f.tell())
+    y, t = counting_words(f)
+    print(f.tell())
+    y, t = counting_words(f)
+    print(f.tell())
+    f.close()
+
 
     # Inverse dynamics in joint space with operational space
     # xd, xdmat = ctrl.get_site_pose(sim)
