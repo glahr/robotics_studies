@@ -7,8 +7,8 @@ from enum import Enum, auto
 from copy import deepcopy
 from plots import displacement_plot
 
-time_k = []
-displacement_k = []
+# time_k = []
+# displacement_k = []
 
 
 class TrajectoryProfile(Enum):
@@ -24,7 +24,7 @@ class CtrlType(Enum):
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
+    def __init__(self, sim_handle, simulation_time=15, plot_2d=False, use_kd=True, use_ki=True,
                  use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
@@ -372,7 +372,7 @@ class CtrlUtils:
     #     q_next = q_act + J_inv.dot(v_tcp)*sim.model.opt.timestep
     #     return q_next
 
-    def move_to_joint_pos(self, sim, box=None, xd=None, xdmat=None, qd=None, viewer=None, eps=3*np.pi/180):
+    def move_to_joint_pos(self, sim, xd=None, xdmat=None, qd=None, viewer=None, eps=3*np.pi/180):
         if qd is not None:
             self.qd = qd
         if xd is not None:
@@ -389,8 +389,8 @@ class CtrlUtils:
             # qpos_ref, qvel_ref, qacc_ref = trajectory.next()
             qpos_ref, qvel_ref, qacc_ref = self.iiwa_kin.traj_joint_get_point()
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
-            time_k.append(sim.data.time)
-            displacement_k.append(sim.data.sensordata[6])
+            # time_k.append(sim.data.time)
+            # displacement_k.append(sim.data.sensordata[6])
             str_value = str(sim.data.sensordata[6])
             str_value_time = str(sim.data.time)
             f.write(str_value)
@@ -399,14 +399,15 @@ class CtrlUtils:
             f.write("\n")
 
             if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
-                if box is not None:
-                    displacement_plot(time_k, displacement_k, box)
-                    str_value = str(sim.data.sensordata[6])
-                    str_value_time = str(sim.data.time)
-                    f.write(str_value)
-                    f.write(" ")
-                    f.write(str_value_time)
-                    f.write("\n")
+                # if box is not None:
+                    # displacement_plot(time_k, displacement_k, box)
+                str_value = str(sim.data.sensordata[6])
+                str_value_time = str(sim.data.time)
+                f.write(str_value)
+                f.write(" ")
+                f.write(str_value_time)
+                f.write("\n")
+                f.close()
                 return
 
             u = self.ctrl_action(sim, k, qacc_ref=qacc_ref)
@@ -421,16 +422,15 @@ class CtrlUtils:
             k += 1
             # TODO: create other stopping criteria
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
-                displacement_plot(time_k, displacement_k, box)
+                # displacement_plot(time_k, displacement_k, box)
                 str_value = str(sim.data.sensordata[6])
                 str_value_time = str(sim.data.time)
                 f.write(str_value)
                 f.write(" ")
                 f.write(str_value_time)
                 f.write("\n")
+                f.close()
                 return
-
-        f.close()
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):
         self.xd = xd

@@ -25,6 +25,19 @@ def reference_guide():
     #     for event in pygame.event.get():
     #         if event.type == pygame.QUIT:
     #             running = False
+    
+def size_files(s):
+
+    count = 0
+
+    while True:
+        line = s.readline()
+        if line == "":
+            print("end of file")
+            break
+        count += 1
+
+    return count
 
 def counting_words(f):
 
@@ -41,13 +54,27 @@ def counting_words(f):
         t += 1
         i = f.read(1)
 
-    print("")
+    # print("")
     # print(f.read(1))
     # print(f.read(1))
 
-    print("valores das palavras: " + str(y) + "  " + str(t))
+    # print("valores das palavras: " + str(y) + "  " + str(t))
 
     return y, t
+
+def reading_files(f, displacement, time):
+    
+    y, t = counting_words(f)
+    # print(f.tell())
+    p = f.tell()
+    f.seek((f.tell() - (y + t + 1)), 0)
+    # print(f.read(y))
+    displacement.append(float(f.read(y)))
+    # print(f.read(1))
+    # print(f.read(t))
+    time.append(float(f.read(t)))
+    f.seek(p, 0)
+    # print(f.tell())
 
 class soft_body:
 
@@ -74,10 +101,23 @@ class soft_body:
         open("displacement.txt", "x")
 
     def displacement_plot(self):
+        s = open("displacement.txt", "r")
+        size = size_files(s)
+        s.close()
+
+        print("Number of file's lines", size)
+        
         f = open("displacement.txt", "r")
         displacement = []
         time = []
 
+        for i in range(1, size + 1):
+            reading_files(f, displacement, time)
+
+        print("Tamanho dos vetores: ", len(displacement), len(time))
+
+        f.close()
+    
         title = "stiffness of" + " " + str(self.box)
         plt.plot(time, displacement, 'b', linewidth=2.0)
         # plt.setp(color='b', linewidth=2.0)
