@@ -24,7 +24,7 @@ class CtrlType(Enum):
 
 class CtrlUtils:
 
-    def __init__(self, sim_handle, simulation_time=15, plot_2d=False, use_kd=True, use_ki=True,
+    def __init__(self, sim_handle, simulation_time=10, plot_2d=False, use_kd=True, use_ki=True,
                  use_gravity=True, controller_type=CtrlType.INV_DYNAMICS, lambda_H=5, kp=20):
         self.sim = sim_handle
         self.dt = sim_handle.model.opt.timestep
@@ -391,7 +391,7 @@ class CtrlUtils:
             self.calculate_errors(sim, k, qpos_ref=qpos_ref, qvel_ref=qvel_ref)
             # time_k.append(sim.data.time)
             # displacement_k.append(sim.data.sensordata[6])
-            str_value = str(sim.data.sensordata[6])
+            str_value = str(sim.data.sensordata[7])
             str_value_time = str(sim.data.time)
             f.write(str_value)
             f.write(" ")
@@ -401,7 +401,7 @@ class CtrlUtils:
             if (np.absolute(self.qd - self.get_robot_qpos(sim)) < eps).all():
                 # if box is not None:
                     # displacement_plot(time_k, displacement_k, box)
-                str_value = str(sim.data.sensordata[6])
+                str_value = str(sim.data.sensordata[7])
                 str_value_time = str(sim.data.time)
                 f.write(str_value)
                 f.write(" ")
@@ -421,16 +421,16 @@ class CtrlUtils:
                 viewer.render()
             k += 1
             # TODO: create other stopping criteria
-            if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
-                # displacement_plot(time_k, displacement_k, box)
-                str_value = str(sim.data.sensordata[6])
-                str_value_time = str(sim.data.time)
-                f.write(str_value)
-                f.write(" ")
-                f.write(str_value_time)
-                f.write("\n")
-                f.close()
-                return
+            # if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+            #     # displacement_plot(time_k, displacement_k, box)
+            #     str_value = str(sim.data.sensordata[7])
+            #     str_value_time = str(sim.data.time)
+            #     f.write(str_value)
+            #     f.write(" ")
+            #     f.write(str_value_time)
+            #     f.write("\n")
+            #     f.close()
+            #     return
 
     def move_to_point(self, xd, xdmat, sim, viewer=None):
         self.xd = xd

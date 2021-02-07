@@ -4,6 +4,8 @@ import numpy as np
 from mujoco_py import load_model_from_path, MjSim, MjViewer
 from controllers_utils import CtrlUtils, CtrlType
 import pygame
+import shutil
+from datetime import date
 
 
 def reference_guide():
@@ -128,3 +130,10 @@ class soft_body:
         plt.grid(True)
         plt.savefig(title)
         plt.show()
+
+        data_file = "/home/christian/git_artigo_sistemas_de_controle/robotic_studies/robotics_studies//data_base/" + \
+                    "data_of_displacement_of_body_" + str(self.box) + "_generated_in_" + str(date.today()) + ".txt"
+        shutil.copyfile("displacement.txt", data_file)
+
+        e = open("displacement.txt", "w")
+        e.close()

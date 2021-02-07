@@ -106,6 +106,21 @@ if __name__ == '__main__':
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
+    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+
+    z = 0
+    z_next = -0.001
+    z_old = -0.08
+
+    while z < 60:
+        z_current = z_old + z_next
+        qd = np.array([0, 0, z_current, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
+        ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+        z_old = z_current
+        print(z)
+        z += 1
+
 
     # xd, xdmat = ctrl.get_site_pose(sim)
     #
@@ -153,6 +168,9 @@ if __name__ == '__main__':
     # y, t = counting_words(f)
     # print(f.tell())
     # f.close()
+    # if KeyboardInterrupt:
+    #     sf.displacement_plot()
+
     sf.displacement_plot()
 
 
