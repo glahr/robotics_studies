@@ -35,7 +35,7 @@ def size_files(s):
     while True:
         line = s.readline()
         if line == "":
-            print("end of file")
+            # print("end of file")
             break
         count += 1
 
@@ -107,7 +107,7 @@ class soft_body:
         size = size_files(s)
         s.close()
 
-        print("Number of file's lines", size)
+        # print("Number of file's lines", size)
         
         f = open("displacement.txt", "r")
         displacement = []
@@ -116,7 +116,7 @@ class soft_body:
         for i in range(1, size + 1):
             reading_files(f, displacement, time)
 
-        print("Tamanho dos vetores: ", len(displacement), len(time))
+        # print("Tamanho dos vetores: ", len(displacement), len(time))
 
         f.close()
     

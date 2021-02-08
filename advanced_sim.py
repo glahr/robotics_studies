@@ -4,9 +4,9 @@ import numpy as np
 from controllers_utils import CtrlUtils, CtrlType
 from draw import reference
 from plots import displacement_plot
-from soft_body_complete_analyses import soft_body
-from soft_body_complete_analyses import reference_guide
-from soft_body_complete_analyses import counting_words
+from soft_body_complete_analysis import soft_body
+from soft_body_complete_analysis import reference_guide
+from soft_body_complete_analysis import counting_words
 
 
 # reference()
@@ -81,9 +81,9 @@ if __name__ == '__main__':
     ctrl.Kp[1, 1] = 500
     ctrl.Kd[1, 1] = 30
 
-    print(ctrl.Kp[1, 1])
-    print(ctrl.Kd[1, 1])
-    print(sim.data.sensordata)
+    # print(ctrl.Kp[1, 1])
+    # print(ctrl.Kd[1, 1])
+    # print(sim.data.sensordata)
 
     # Inverse dynamics in joint space
     # qd = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
@@ -106,20 +106,22 @@ if __name__ == '__main__':
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-    qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    # qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
+    # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    
+    print(ctrl.get_site_pose(sim))
 
-    z = 0
-    z_next = -0.001
-    z_old = -0.08
-
-    while z < 60:
-        z_current = z_old + z_next
-        qd = np.array([0, 0, z_current, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
-        ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-        z_old = z_current
-        print(z)
-        z += 1
+    # z = 0
+    # z_next = -0.001
+    # z_old = -0.08
+    # 
+    # while z < 40:
+    #     z_current = z_old + z_next
+    #     qd = np.array([0, 0, z_current, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
+    #     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    #     z_old = z_current
+    #     print(z)
+    #     z += 1
 
 
     # xd, xdmat = ctrl.get_site_pose(sim)
@@ -139,8 +141,8 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(qd, sim, viewer=viewer)
     # q0 = np.zeros(7)
     # ctrl.move_to_joint_pos(q0, sim, viewer=viewer)
-    print(sim.data.sensordata)
-    print(sim.data.sensordata[6:])
+    # print(sim.data.sensordata)
+    # print(sim.data.sensordata[6:])
     # f = open("displacement.txt", "r")
     # y, t = counting_words(f)
     # print(f.tell())
