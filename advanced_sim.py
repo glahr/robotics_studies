@@ -96,14 +96,10 @@ if __name__ == '__main__':
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
 
 
-    # IMPEDANCE CONTROL
+    # INVERSE DYNAMICS
     ctrl.use_ki = False
     ctrl.get_pd_matrices()
     # ctrl.controller_type = CtrlType.INDEP_JOINTS
-    qd = np.array([0, 0, 0, 0, -np.pi / 2, 0, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, 0, 0])
-    ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
@@ -111,17 +107,19 @@ if __name__ == '__main__':
     
     print(ctrl.get_site_pose(sim))
 
-    # z = 0
-    # z_next = -0.001
-    # z_old = -0.08
-    # 
-    # while z < 40:
-    #     z_current = z_old + z_next
-    #     qd = np.array([0, 0, z_current, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
-    #     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
-    #     z_old = z_current
-    #     print(z)
-    #     z += 1
+    # IMPEDANCE CONTROL
+    # ctrl.controller_type = CtrlType.IMPEDANCE
+    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    xd, xdmat = ctrl.get_site_pose(sim)
+
+    y_step = -0.001
+    k = 0
+
+    while k < 40:
+        xd[1] += y_step
+        ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
+        print(k)
+        k += 1
 
 
     # xd, xdmat = ctrl.get_site_pose(sim)
