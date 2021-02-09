@@ -100,7 +100,7 @@ if __name__ == '__main__':
     ctrl.use_ki = False
     ctrl.get_pd_matrices()
     # ctrl.controller_type = CtrlType.INDEP_JOINTS
-    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
+    qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi / 2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     # qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)

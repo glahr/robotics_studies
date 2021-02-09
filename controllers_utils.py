@@ -402,10 +402,16 @@ class CtrlUtils:
         return sim.data.qfrc_bias[:self.nv]
 
     def get_jacobian_site(self, sim):
+        full_jacp = sim.data.get_site_jacp(self.name_tcp)
+        full_jacr = sim.data.get_site_jacp(self.name_tcp)
         Jp_shape = (3, self.nv)
-        jacp = sim.data.get_site_jacp(self.name_tcp)[:self.nv]  # np.zeros(3 * self.nv)
-        jacr = sim.data.get_site_jacp(self.name_tcp)[:self.nv]
-        # mujoco_py.functions.mj_jacSite(sim.model, sim.data, jacp, jacr, 1)
+        if full_jacp.shape[0] > 3*self.nv:
+            jacp = np.concatenate((full_jacp[0:self.nv], full_jacp[63:63+self.nv], full_jacp[126:126+self.nv]))
+            jacr = np.concatenate((full_jacr[0:self.nv], full_jacr[63:63 + self.nv], full_jacr[126:126 + self.nv]))
+        else:
+            jacp = sim.data.get_site_jacp(self.name_tcp)[:self.nv]  # np.zeros(3 * self.nv)
+            jacr = sim.data.get_site_jacp(self.name_tcp)[:self.nv]
+            # mujoco_py.functions.mj_jacSite(sim.model, sim.data, jacp, jacr, 1)
         return np.vstack((jacp.reshape(Jp_shape), jacr.reshape(Jp_shape)))
 
     def get_euler_angles(self, sim=None, mat=None):
