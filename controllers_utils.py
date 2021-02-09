@@ -48,17 +48,17 @@ class CtrlUtils:
 
         # Definition of step vectors.
         if True: # controller_type == 'independent_joints' or controller_type == 'inverse_dynamics':
-            self.q_ref = np.zeros(sim_handle.model.nv)
-            self.qvel_ref = np.zeros(sim_handle.model.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.qacc_ref = np.zeros(sim_handle.model.nv) #[np.zeros((7,)) for _ in range(self.n_timesteps)]
-            self.q_log = np.zeros((self.n_timesteps, sim_handle.model.nv))
-            self.error_int = np.zeros(sim_handle.model.nv)
-            self.error_q = np.zeros(sim_handle.model.nv)
-            self.error_qvel = np.zeros(sim_handle.model.nv)
-            self.error_q_int_ant = np.zeros(sim_handle.model.nv)
-            self.error_q_ant = np.zeros(sim_handle.model.nv)
-            self.last_qpos = np.zeros(sim_handle.model.nv)
-            self.qpos_int = np.zeros(sim_handle.model.nv)
+            self.q_ref = np.zeros(self.nv)
+            self.qvel_ref = np.zeros(self.nv)  # [np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.qacc_ref = np.zeros(self.nv)  # [np.zeros((7,)) for _ in range(self.n_timesteps)]
+            self.q_log = np.zeros((self.n_timesteps, self.nv))
+            self.error_int = np.zeros(self.nv)
+            self.error_q = np.zeros(self.nv)
+            self.error_qvel = np.zeros(self.nv)
+            self.error_q_int_ant = np.zeros(self.nv)
+            self.error_q_ant = np.zeros(self.nv)
+            self.last_qpos = np.zeros(self.nv)
+            self.qpos_int = np.zeros(self.nv)
 
         if True: #controller_type == 'inverse_dynamics_operational_space':
             self.x_ref = np.zeros((self.n_timesteps, 3))
@@ -403,9 +403,9 @@ class CtrlUtils:
 
     def get_jacobian_site(self, sim):
         Jp_shape = (3, self.nv)
-        jacp = np.zeros(3*self.nv)
-        jacr = np.zeros(3 * self.nv)
-        mujoco_py.functions.mj_jacSite(sim.model, sim.data, jacp, jacr, 1)
+        jacp = sim.data.get_site_jacp(self.name_tcp)[:self.nv]  # np.zeros(3 * self.nv)
+        jacr = sim.data.get_site_jacp(self.name_tcp)[:self.nv]
+        # mujoco_py.functions.mj_jacSite(sim.model, sim.data, jacp, jacr, 1)
         return np.vstack((jacp.reshape(Jp_shape), jacr.reshape(Jp_shape)))
 
     def get_euler_angles(self, sim=None, mat=None):
@@ -732,7 +732,7 @@ class TrajectoryOperational(TrajGen):
                 alpha_ref = (w_ref - w_ant)/dt
                 w_ant = w_ref
 
-                yield x_ref, xvel_ref, xacc_ref, quat_ref, w_ref, alpha_ref
+                yield x_ref, xvel_ref, xacc_ref, quatf, np.zeros(3), np.zeros(3)
 
         while True:
             self.extra_points = self.extra_points + 1

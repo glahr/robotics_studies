@@ -108,8 +108,8 @@ if __name__ == '__main__':
     print(ctrl.get_site_pose(sim))
 
     # IMPEDANCE CONTROL
-    # ctrl.controller_type = CtrlType.IMPEDANCE
-    ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
+    ctrl.controller_type = CtrlType.IMPEDANCE
+    # ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
     xd, xdmat = ctrl.get_site_pose(sim)
 
     y_step = -0.001
