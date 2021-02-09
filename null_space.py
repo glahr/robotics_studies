@@ -104,10 +104,11 @@ if __name__ == '__main__':
     #                   [-0.00209056, -0.99999708, -0.0012129],
     #                   [0.00925441, 0.0011935, -0.99995646]])
 
-    T = robot.iiwa.fkine(q0+np.array([0, 0, 0, 0, 0, 0.1, 0]))
+    T = robot.iiwa.fkine(q0+np.array([0, 0, 0, 0, 0, 0.4, 0]))
     xd = T.t
     # T = robot.create_T(xd, xdmat)
     quatd = robot.get_quat_from_mat(T.R)
+    xveld = np.zeros(6)
 
     K = 10*np.eye(6)
     qvel0 = np.zeros(7)
@@ -123,29 +124,41 @@ if __name__ == '__main__':
     # pyplot = rtb.backends.PyPlot()
     # pyplot.add(robot.iiwa)
 
+    alpha = 0.0001
+
     while np.linalg.norm(e[:3]) > eps and np.linalg.norm(e[3:]) > eps_angle:
+        # x_act, x_actmat = robot.fk_iiwa(q_act)
+        # T = robot.create_T(x_act, x_actmat)
+        # quat_act = robot.get_quat_from_mat(T.R)
+        #
+        # e = get_error(x_act, quat_act, xd, quatd)
+        #
+        # J_A = get_jacobian(robot, q_act)
+        # J_A_pseudo = get_pseudo_jacobian(J_A)
+        # qdot = J_A_pseudo.dot(xveld + K.dot(e)) + (np.eye(7) - J_A_pseudo.dot(J_A)).dot(qvel0)
+        # # qdot = J_A.T.dot(K.dot(e)) + (np.eye(7) - J_A_pseudo.dot(J_A)).dot(qvel0)
+        #
+        # q_act = q_ant + (qdot+qdot_ant)*dt/2
+        # robot.iiwa.q = q_act
+        # q_ant = q_act
+        # qdot_ant = qdot
+        # # print('interando!')
+        # # print('q_act = ', q_act)
+        # # print('erro = ', e)
+        # # print('\n')
+        # print('ex = ', e[:3], '\t\ter = ', e[3:])
+        # # print(robot.iiwa.fkine(q_act))
+        #
+        # # pyplot.step()
+        # # robot.iiwa.plot(q_act)
+
         x_act, x_actmat = robot.fk_iiwa(q_act)
         T = robot.create_T(x_act, x_actmat)
         quat_act = robot.get_quat_from_mat(T.R)
-
+        J = get_jacobian(robot, q_act)
+        J_pseudo = get_pseudo_jacobian(J)
         e = get_error(x_act, quat_act, xd, quatd)
-
-        J_A = get_jacobian(robot, q_act)
-        J_A_pseudo = get_pseudo_jacobian(J_A)
-        qdot = J_A_pseudo.dot(K.dot(e)) + (np.eye(7) - J_A_pseudo.dot(J_A)).dot(qvel0)
-
-        q_act = q_ant + (qdot+qdot_ant)*dt/2
-        robot.iiwa.q = q_act
-        q_ant = q_act
-        qdot_ant = qdot
-        # print('interando!')
-        # print('q_act = ', q_act)
-        # print('erro = ', e)
-        # print('\n')
-        print('ex_norm = ', np.linalg.norm(e[:3]), '\t\ter_norm = ', np.linalg.norm(e[3:]))
-        # print(robot.iiwa.fkine(q_act))
-
-        # pyplot.step()
-        # robot.iiwa.plot(q_act)
+        q_act = q_act + alpha*J_pseudo.dot(e)
+        print('ex = ', e[:3], '\t\ter = ', e[3:])
 
     print('hi')
