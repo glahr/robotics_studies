@@ -122,7 +122,7 @@ class CtrlUtils:
         null_space_control += self.K_null.dot(self.q_nullspace * 0 - self.get_robot_qpos(sim))
         impedance_acc_d += projection_matrix.dot(null_space_control)
 
-        tau = H.dot(impedance_acc_d) + C + J.T.dot(sim.data.sensordata)
+        tau = H.dot(impedance_acc_d) + C + J.T.dot(self.get_ft_data(sim))
 
         return tau
 
@@ -403,7 +403,7 @@ class CtrlUtils:
 
     def get_jacobian_site(self, sim):
         full_jacp = sim.data.get_site_jacp(self.name_tcp)
-        full_jacr = sim.data.get_site_jacp(self.name_tcp)
+        full_jacr = sim.data.get_site_jacr(self.name_tcp)
         Jp_shape = (3, self.nv)
         if full_jacp.shape[0] > 3*self.nv:
             jacp = np.concatenate((full_jacp[0:self.nv], full_jacp[63:63+self.nv], full_jacp[126:126+self.nv]))
@@ -581,6 +581,9 @@ class CtrlUtils:
         # q_error = np.concatenate((eta ,eps))
         q_error = qd[0] * q[1:] - q[0] * qd[1:] + smath.base.skew(qd[1:]).dot(q[1:])
         return q_error
+
+    def get_ft_data(self, sim):
+        return sim.data.sensordata[:6]
 
 
 class TrajGen:

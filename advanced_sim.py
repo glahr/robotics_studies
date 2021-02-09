@@ -99,9 +99,14 @@ if __name__ == '__main__':
     # INVERSE DYNAMICS
     ctrl.use_ki = False
     ctrl.get_pd_matrices()
-    # ctrl.controller_type = CtrlType.INDEP_JOINTS
-    qd = np.array([0, 0, 0, -np.pi / 2, 0, np.pi / 2, 0])
+    # ctrl.controller_type = CtrlType.IMPEDANCE
+    qd = np.array([0, 0, 0, -np.pi / 2, -np.pi/2, np.pi / 2, 0])
     ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
+    # xd = np.array([0.40001903, -0.24001999, 1.77999263])
+    # xdmat = np.array([[9.98630075e-01, 5.23255792e-02, 8.01740344e-05],
+    #                   [8.29898508e-05, -5.16406498e-05, -9.99999995e-01],
+    #                   [-5.23255748e-02, 9.98630077e-01, -5.59123980e-05]])
+    # ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
     # qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     
@@ -114,6 +119,31 @@ if __name__ == '__main__':
 
     y_step = -0.001
     k = 0
+
+    '''
+    Alguns pontos:
+    
+    - Caso vc queira ver o controle de impedância funcionando, vc pode só testar aqui as proximas três linhas.
+    
+    - Se der um erro NaN na aceleração, é porque o robô entrou no seu corpo flexível e isso gerou outras
+    forças que vc não esperava. Reconsidere os deslocamentos.
+    
+    - Por fim, o controlador de impedância agora vc pode ir monitorando a força. Tem uma função que vc pode acessar como
+    ctrl.get_ft_data(sim) que te retorna um np array como [fx, fy, fz, mx, my, mz]. Isso no sistema de coordenadas LOCAL
+    do peg. Então vc tem que fazer logging da fz e do deslocamento em y pra ter os dados que vc quer.
+    
+    - Agora vc tem diversas matrizes que podem ajustar seu comportamento. O controlador de impedância implementado
+    é um BK, depois podemos incluir M se for o caso. Pra alterar B e K vc acessa antes do ponto como ctrl.B e ctrl.K.
+    Lembrando que ambos são matrizes 6x6. Vc pode brincar com isso se precisar, tornando mais rígido em certas direções.
+    
+    Have fun.
+    
+    Obs: recomendo vc rever a posição xyz dos corpos flexíveis, eles estão fora de centro e isso impacta em como o
+    controlador de impedância se comporta.
+    '''
+    # xd[1] += -0.03
+    # ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
+    # xd, xdmat = ctrl.get_site_pose(sim)
 
     while k < 40:
         xd[1] += y_step
