@@ -107,57 +107,8 @@ def get_error(x_act, quat_act, xd, quat_d):
     # return np.concatenate((error_x, error_r))
     return error_x, error_r
 
-
-def inverseKin(robot, q_init, q_nom, xpos_d, quat_d, reg=1e-4, upper=None, lower=None, cost_tol=1e-6, raise_on_fail=True, qpos_idx=None):
-    '''
-    Use SciPy's nonlinear least-squares method to compute the inverse kinematics
-    '''
-
-    if qpos_idx is None:
-        qpos_idx = range(len(q_init))
-
-    def residuals(q):
-        robot.iiwa.q = q
-        # xpos, xrot = forwardKin(sim, body_pos, identity_quat, body_id)
-        xpos, xrot = robot.fk_iiwa(q)
-        T = robot.create_T(xpos, xrot)
-        quat = robot.get_quat_from_mat(T.R)
-        error_x, error_r = get_error(xpos, quat, xpos_d, quat_d)
-        res = np.concatenate((error_x, error_r, reg * (q - q_nom)))
-        return res
-
-    def jacobian(q):
-        robot.iiwa.q = q
-        J = get_jacobian(robot, q)
-        residual_jacobian = np.vstack((J, reg*np.identity(q.size)))
-        return residual_jacobian
-
-    if lower is None:
-        # lower = sim.model.jnt_range[qpos_idx,0]
-        lower = robot.qlim[0]
-    else:
-        lower = np.maximum(lower, robot.qlim[0])
-
-    if upper is None:
-        # upper = sim.model.jnt_range[qpos_idx,1]
-        lower = robot.qlim[1]
-    else:
-        upper = np.minimum(upper, robot.qlim[1])
-
-    result = scipy.optimize.least_squares(residuals, q_init, jac=jacobian, bounds=(lower, upper))
-    # result = scipy.optimize.least_squares(residuals, q_init, jac=jacobian, bounds=(lower, upper))
-
-    if not result.success:
-        print("Inverse kinematics failed with status: {}".format(result.status))
-        if raise_on_fail:
-            raise RuntimeError
-
-    if result.cost > cost_tol:
-        print("Inverse kinematics failed to find a sufficiently low cost")
-        if raise_on_fail:
-            raise RuntimeError("Infeasible")
-    return result.x
-
+def get_link2_pos():
+    return robot.iiwa.fkine_all()[2].t
 
 if __name__ == '__main__':
     robot = KinematicsIiwa()
@@ -187,7 +138,7 @@ if __name__ == '__main__':
     K[3:, 3:] *= 1
 
     dt = 0.001
-    eps = 0.002
+    eps = 0.001
     eps_angle = np.pi/180
     e = np.ones(6)
 
@@ -196,9 +147,14 @@ if __name__ == '__main__':
     qdot_ant = np.zeros(7)
     q_log = []
 
-    alpha = 0.1
+    alpha = 0.05
 
     qvel0 = np.zeros(7)
+
+    obstacle = np.array([0.0, 0.7, 0.1])
+    w_ant = 0.0
+
+    k0 = 1e-3
 
     while np.linalg.norm(e[:3]) > eps or np.linalg.norm(e[3:]) > eps_angle:
         # # method 1
@@ -235,8 +191,16 @@ if __name__ == '__main__':
         e = np.concatenate((ex, er))
 
         # q_act = q_act + alpha*J_pseudo.dot(e)
-        q_act = q_act + alpha*J_pseudo.dot(e) + (I - J_pseudo.dot(J)).dot(qvel0)*dt
-        # print('ex = ', e[:3], '\t\t\t\t\ter = ', e[3:])
+
+        alpha = 0.05 + np.linalg.norm(er)
+
+        # redundancy
+        w = np.linalg.norm(get_link2_pos() - obstacle)
+        qvel0 = k0*(w - w_ant)/(q_act - q_ant + np.ones(7)*1e-6)
+
+        q_act = q_ant + alpha*J_pseudo.dot(e) + (I - J_pseudo.dot(J)).dot(qvel0)*dt
+        q_ant = q_act
+        print('ex = ', e[:3], '\t\t\t\t\ter = ', e[3:])
         q_log.append(q_act)
 
 
