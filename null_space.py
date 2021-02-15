@@ -19,6 +19,10 @@ class KinematicsIiwa:
         T_new.R[:] = smath.SO3.Rz(np.pi) * T_new.R
         self.iiwa.base = T_new
 
+        self.qlim = np.zeros((2, 7))
+        self.qlim[1] = np.array([170, 120, 170, 120, 170, 120, 175]) * np.pi/180
+        self.qlim[0] = np.array([170, 120, 170, 120, 170, 120, 175]) * np.pi/180*(-1)
+
         self.k = 0
         self.q = None
         self.qvel = None
@@ -75,8 +79,22 @@ class KinematicsIiwa:
         return smath.UnitQuaternion(xmat).A
 
 
-def get_jacobian(iiwa, q):
-    return iiwa.iiwa.jacobe(q)
+def get_jacobian(robot, q, analytical=False):
+    J = robot.iiwa.jacob0(q)
+
+    if analytical:
+        T = robot.iiwa.fkine(q)
+        r, p, y = smath.base.tr2rpy(T.R)
+        A = np.array([[np.sin(p),               0,          1],
+                      [-np.cos(p)*np.sin(y),    np.cos(y),  0],
+                      [np.cos(p)*np.cos(y),     np.sin(y),  0]])
+        T_orientation = np.zeros((6,6))
+        T_orientation[:3,:3] = np.eye(3)
+        T_orientation[3:, 3:] = np.linalg.inv(A)
+        # returning the analytical jacobian
+        J = T_orientation.dot(J)
+
+    return J
 
 
 def get_pseudo_jacobian(J):  # right pseudo-inverse
@@ -90,7 +108,7 @@ def get_error(x_act, quat_act, xd, quat_d):
     return error_x, error_r
 
 
-def inverseKin(robot, q_init, q_nom, xpos_d, quat_d, reg=1e-4, upper=None, lower=None, cost_tol=1e-6, raise_on_fail=False, qpos_idx=None):
+def inverseKin(robot, q_init, q_nom, xpos_d, quat_d, reg=1e-4, upper=None, lower=None, cost_tol=1e-6, raise_on_fail=True, qpos_idx=None):
     '''
     Use SciPy's nonlinear least-squares method to compute the inverse kinematics
     '''
@@ -116,17 +134,17 @@ def inverseKin(robot, q_init, q_nom, xpos_d, quat_d, reg=1e-4, upper=None, lower
 
     if lower is None:
         # lower = sim.model.jnt_range[qpos_idx,0]
-        lower = robot.iiwa.qlim[0]
+        lower = robot.qlim[0]
     else:
-        lower = np.maximum(lower, robot.iiwa.qlim[0])
+        lower = np.maximum(lower, robot.qlim[0])
 
     if upper is None:
         # upper = sim.model.jnt_range[qpos_idx,1]
-        lower = robot.iiwa.qlim[1]
+        lower = robot.qlim[1]
     else:
-        upper = np.minimum(upper, robot.iiwa.qlim[1])
+        upper = np.minimum(upper, robot.qlim[1])
 
-    result = scipy.optimize.least_squares(residuals, q_init, bounds=(lower, upper))
+    result = scipy.optimize.least_squares(residuals, q_init, jac=jacobian, bounds=(lower, upper))
     # result = scipy.optimize.least_squares(residuals, q_init, jac=jacobian, bounds=(lower, upper))
 
     if not result.success:
@@ -151,20 +169,24 @@ if __name__ == '__main__':
     q0 = np.array([0, 0.461, 0, -0.817, 0, 0.69, 0])
     robot.iiwa.q = q0
 
-    # xd = np.array([4.01863413e-01, -4.95389989e-05, 1.53277615e+00-1])
-    # xdmat = np.array([[0.99995499, -0.00210169, 0.00925189],
-    #                   [-0.00209056, -0.99999708, -0.0012129],
-    #                   [0.00925441, 0.0011935, -0.99995646]])
+    xd = np.array([4.01863413e-01, -4.95389989e-05, 1.53277615e+00-1])
+    xdmat = np.array([[0.99995499, -0.00210169, 0.00925189],
+                      [-0.00209056, -0.99999708, -0.0012129],
+                      [0.00925441, 0.0011935, -0.99995646]])
 
-    T = robot.iiwa.fkine(q0+np.array([0, 0, 0, 0, 0, 0.4, 0]))
-    xd = T.t
-    # T = robot.create_T(xd, xdmat)
-    quatd = robot.get_quat_from_mat(T.R)
+    # T = robot.iiwa.fkine(q0+np.array([0, 0, 0, 0, 0, 0.4, 0]))
+    # xd = T.t
+    I = np.eye(7)
+    T_act = robot.create_T(xd, xdmat)
+    quatd = robot.get_quat_from_mat(T_act.R)
     xveld = np.zeros(6)
 
-    K = 10*np.eye(6)
-    qvel0 = np.zeros(7)
-    dt = 0.00002
+    # TODO: use different gains for positions and orientation
+    K = np.eye(6)
+    K[:3, :3] *= 1
+    K[3:, 3:] *= 1
+
+    dt = 0.001
     eps = 0.002
     eps_angle = np.pi/180
     e = np.ones(6)
@@ -172,54 +194,51 @@ if __name__ == '__main__':
     q_act = q0
     q_ant = q0
     qdot_ant = np.zeros(7)
+    q_log = []
 
-    # pyplot = rtb.backends.PyPlot()
-    # pyplot.add(robot.iiwa)
+    alpha = 0.1
 
-    alpha = 0.0001
+    qvel0 = np.zeros(7)
 
-    # while np.linalg.norm(e[:3]) > eps and np.linalg.norm(e[3:]) > eps_angle:
-        # # try 1
+    while np.linalg.norm(e[:3]) > eps or np.linalg.norm(e[3:]) > eps_angle:
+        # # method 1
         # x_act, x_actmat = robot.fk_iiwa(q_act)
-        # T = robot.create_T(x_act, x_actmat)
-        # quat_act = robot.get_quat_from_mat(T.R)
+        # T_act = robot.create_T(x_act, x_actmat)
+        # quat_act = robot.get_quat_from_mat(T_act.R)
         #
-        # e = get_error(x_act, quat_act, xd, quatd)
+        # error_x, error_r = get_error(x_act, quat_act, xd, quatd)
+        # e = np.concatenate((error_x, error_r))
         #
-        # J_A = get_jacobian(robot, q_act)
+        # J_A = get_jacobian(robot, q_act, analytical=False)
         # J_A_pseudo = get_pseudo_jacobian(J_A)
-        # qdot = J_A_pseudo.dot(xveld + K.dot(e)) + (np.eye(7) - J_A_pseudo.dot(J_A)).dot(qvel0)
-        # # qdot = J_A.T.dot(K.dot(e)) + (np.eye(7) - J_A_pseudo.dot(J_A)).dot(qvel0)
+        #
+        # K[:3, :3] = 25*np.eye(3) + 1e3*np.linalg.norm(error_x)
+        # K[3:, 3:] = 50*np.eye(3) + 1e3*np.linalg.norm(error_r)
+        #
+        # qdot = J_A_pseudo.dot(xveld + K.dot(e)) + (I - J_A_pseudo.dot(J_A)).dot(qvel0)  # TODO: too slow. Why?
         #
         # q_act = q_ant + (qdot+qdot_ant)*dt/2
         # robot.iiwa.q = q_act
         # q_ant = q_act
         # qdot_ant = qdot
-        # # print('interando!')
-        # # print('q_act = ', q_act)
-        # # print('erro = ', e)
-        # # print('\n')
         # print('ex = ', e[:3], '\t\ter = ', e[3:])
-        # # print(robot.iiwa.fkine(q_act))
-        #
-        # # pyplot.step()
-        # # robot.iiwa.plot(q_act)
-        
-        # # try 2
-        # x_act, x_actmat = robot.fk_iiwa(q_act)
-        # T = robot.create_T(x_act, x_actmat)
-        # quat_act = robot.get_quat_from_mat(T.R)
-        # J = get_jacobian(robot, q_act)
-        # J_pseudo = get_pseudo_jacobian(J)
-        # e = get_error(x_act, quat_act, xd, quatd)
+
+        # # method 2
+        x_act, x_actmat = robot.fk_iiwa(q_act)
+        T = robot.create_T(x_act, x_actmat)
+        quat_act = robot.get_quat_from_mat(T.R)
+
+        J = get_jacobian(robot, q_act, analytical=False)
+        J_pseudo = get_pseudo_jacobian(J)
+
+        ex, er = get_error(x_act, quat_act, xd, quatd)
+        e = np.concatenate((ex, er))
+
         # q_act = q_act + alpha*J_pseudo.dot(e)
-        # print('ex = ', e[:3], '\t\ter = ', e[3:])
-
-        # # try 3
-    q_nom = np.zeros(7)
-    world_pos = 0
-    # robot, q_init, q_nom, xpos_d, quat_d
-    q_opt = inverseKin(robot, q0, q_nom, xd, quatd)
+        q_act = q_act + alpha*J_pseudo.dot(e) + (I - J_pseudo.dot(J)).dot(qvel0)*dt
+        # print('ex = ', e[:3], '\t\t\t\t\ter = ', e[3:])
+        q_log.append(q_act)
 
 
-    print('hi')
+    robot.iiwa.plot(np.asarray(q_log))
+    print('ex = ', np.linalg.norm(e[:3]), '\t\ter = ', np.linalg.norm(e[3:]))
