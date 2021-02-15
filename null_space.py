@@ -1,7 +1,7 @@
 import roboticstoolbox as rtb
 import spatialmath as smath
 import numpy as np
-
+import scipy
 
 class KinematicsIiwa:
     def __init__(self):
@@ -86,7 +86,59 @@ def get_pseudo_jacobian(J):  # right pseudo-inverse
 def get_error(x_act, quat_act, xd, quat_d):
     error_x = xd - x_act
     error_r = (smath.UnitQuaternion(quat_d)-smath.UnitQuaternion(quat_act)).A[1:]
-    return np.concatenate((error_x, error_r))
+    # return np.concatenate((error_x, error_r))
+    return error_x, error_r
+
+
+def inverseKin(robot, q_init, q_nom, xpos_d, quat_d, reg=1e-4, upper=None, lower=None, cost_tol=1e-6, raise_on_fail=False, qpos_idx=None):
+    '''
+    Use SciPy's nonlinear least-squares method to compute the inverse kinematics
+    '''
+
+    if qpos_idx is None:
+        qpos_idx = range(len(q_init))
+
+    def residuals(q):
+        robot.iiwa.q = q
+        # xpos, xrot = forwardKin(sim, body_pos, identity_quat, body_id)
+        xpos, xrot = robot.fk_iiwa(q)
+        T = robot.create_T(xpos, xrot)
+        quat = robot.get_quat_from_mat(T.R)
+        error_x, error_r = get_error(xpos, quat, xpos_d, quat_d)
+        res = np.concatenate((error_x, error_r, reg * (q - q_nom)))
+        return res
+
+    def jacobian(q):
+        robot.iiwa.q = q
+        J = get_jacobian(robot, q)
+        residual_jacobian = np.vstack((J, reg*np.identity(q.size)))
+        return residual_jacobian
+
+    if lower is None:
+        # lower = sim.model.jnt_range[qpos_idx,0]
+        lower = robot.iiwa.qlim[0]
+    else:
+        lower = np.maximum(lower, robot.iiwa.qlim[0])
+
+    if upper is None:
+        # upper = sim.model.jnt_range[qpos_idx,1]
+        lower = robot.iiwa.qlim[1]
+    else:
+        upper = np.minimum(upper, robot.iiwa.qlim[1])
+
+    result = scipy.optimize.least_squares(residuals, q_init, bounds=(lower, upper))
+    # result = scipy.optimize.least_squares(residuals, q_init, jac=jacobian, bounds=(lower, upper))
+
+    if not result.success:
+        print("Inverse kinematics failed with status: {}".format(result.status))
+        if raise_on_fail:
+            raise RuntimeError
+
+    if result.cost > cost_tol:
+        print("Inverse kinematics failed to find a sufficiently low cost")
+        if raise_on_fail:
+            raise RuntimeError("Infeasible")
+    return result.x
 
 
 if __name__ == '__main__':
@@ -126,7 +178,8 @@ if __name__ == '__main__':
 
     alpha = 0.0001
 
-    while np.linalg.norm(e[:3]) > eps and np.linalg.norm(e[3:]) > eps_angle:
+    # while np.linalg.norm(e[:3]) > eps and np.linalg.norm(e[3:]) > eps_angle:
+        # # try 1
         # x_act, x_actmat = robot.fk_iiwa(q_act)
         # T = robot.create_T(x_act, x_actmat)
         # quat_act = robot.get_quat_from_mat(T.R)
@@ -151,14 +204,22 @@ if __name__ == '__main__':
         #
         # # pyplot.step()
         # # robot.iiwa.plot(q_act)
+        
+        # # try 2
+        # x_act, x_actmat = robot.fk_iiwa(q_act)
+        # T = robot.create_T(x_act, x_actmat)
+        # quat_act = robot.get_quat_from_mat(T.R)
+        # J = get_jacobian(robot, q_act)
+        # J_pseudo = get_pseudo_jacobian(J)
+        # e = get_error(x_act, quat_act, xd, quatd)
+        # q_act = q_act + alpha*J_pseudo.dot(e)
+        # print('ex = ', e[:3], '\t\ter = ', e[3:])
 
-        x_act, x_actmat = robot.fk_iiwa(q_act)
-        T = robot.create_T(x_act, x_actmat)
-        quat_act = robot.get_quat_from_mat(T.R)
-        J = get_jacobian(robot, q_act)
-        J_pseudo = get_pseudo_jacobian(J)
-        e = get_error(x_act, quat_act, xd, quatd)
-        q_act = q_act + alpha*J_pseudo.dot(e)
-        print('ex = ', e[:3], '\t\ter = ', e[3:])
+        # # try 3
+    q_nom = np.zeros(7)
+    world_pos = 0
+    # robot, q_init, q_nom, xpos_d, quat_d
+    q_opt = inverseKin(robot, q0, q_nom, xd, quatd)
+
 
     print('hi')
