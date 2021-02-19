@@ -35,7 +35,7 @@
           <include file="kuka/kuka_mesh_collision_peg_ee.xml"/>
       </body>
     </body>
-    <body name="dorsal" pos=".39 -.32 1.8">
+    <body name="dorsal" pos=".405 -.31 1.78">
       <include file="softbody_part_three.xml"/>
     </body>
   </worldbody>

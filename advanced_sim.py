@@ -110,15 +110,34 @@ if __name__ == '__main__':
     # qd = np.array([0, 0, -0.08, -np.pi / 2, -np.pi / 2, np.pi / 2, 0])
     # ctrl.move_to_joint_pos(sim, qd=qd, viewer=viewer)
     
-    print(ctrl.get_site_pose(sim))
+    # print(ctrl.get_site_pose(sim))
 
     # IMPEDANCE CONTROL
     ctrl.controller_type = CtrlType.IMPEDANCE
     # ctrl.controller_type = CtrlType.INV_DYNAMICS_OP_SPACE
     xd, xdmat = ctrl.get_site_pose(sim)
 
-    y_step = -0.001
+    y_step = -0.0001
     k = 0
+
+
+    # ctrl.K[0, 0] = 2
+    # ctrl.B[0, 0] = 2
+    #
+    # ctrl.K[1, 1] = 2
+    # ctrl.B[1, 1] = 2
+    #
+    # ctrl.K[2, 2] = 2
+    # ctrl.B[2, 2] = 2
+
+    # ctrl.K[3, 3] = 2
+    # ctrl.B[3, 3] = 2
+
+    ctrl.K[4, 4] = 3
+    ctrl.B[4, 4] = 3
+
+    # ctrl.K[5, 5] = 2
+    # ctrl.B[5, 5] = 2
 
     '''
     Alguns pontos:
@@ -141,15 +160,23 @@ if __name__ == '__main__':
     Obs: recomendo vc rever a posição xyz dos corpos flexíveis, eles estão fora de centro e isso impacta em como o
     controlador de impedância se comporta.
     '''
-    # xd[1] += -0.03
-    # ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
+    xd[1] += -0.0304
+    ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
+    force = np.sqrt(np.power(ctrl.get_ft_data(sim)[0], 2) + np.power(ctrl.get_ft_data(sim)[1], 2)
+                    + np.power(ctrl.get_ft_data(sim)[2], 2))
+    # force = ctrl.get_ft_data(sim)[1]
+    print(force)
+    print(ctrl.get_ft_data(sim)[0])
+    print(ctrl.get_ft_data(sim)[1])
+    print(ctrl.get_ft_data(sim)[2])
+    print("")
     # xd, xdmat = ctrl.get_site_pose(sim)
 
-    while k < 40:
-        xd[1] += y_step
-        ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
-        print(k)
-        k += 1
+    # while k < 40:
+    #     xd[1] += y_step
+    #     ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
+    #     print(k)
+    #     k += 1
 
 
     # xd, xdmat = ctrl.get_site_pose(sim)

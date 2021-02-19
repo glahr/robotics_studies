@@ -523,13 +523,28 @@ class CtrlUtils:
         self.q_nullspace = self.iiwa_kin.ik_iiwa(xd - sim.data.get_body_xpos('kuka_base'), xdmat,
                                                  q0=self.get_robot_qpos(sim))[0]
 
+        f = open("displacement.txt", "a")
+
         while True:
             # kinematics = trajectory.next()
             kinematics = self.iiwa_kin.traj_cart_get_point()
             self.calculate_errors(sim, k, kin=kinematics)
+            str_value = str(sim.data.sensordata[7])
+            str_value_time = str(sim.data.time)
+            f.write(str_value)
+            f.write(" ")
+            f.write(str_value_time)
+            f.write("\n")
 
             # TODO: aqui é onde vc deve editar o critério
             if (np.absolute(self.xd - sim.data.get_site_xpos(self.name_tcp)) < eps).all():
+                str_value = str(sim.data.sensordata[7])
+                str_value_time = str(sim.data.time)
+                f.write(str_value)
+                f.write(" ")
+                f.write(str_value_time)
+                f.write("\n")
+                f.close()
                 return
 
             u = self.ctrl_action(sim, k, xacc_ref=kinematics[2], alpha_ref=kinematics[5])
@@ -540,6 +555,12 @@ class CtrlUtils:
                 viewer.render()
             k += 1
             if k >= self.n_timesteps:  # and os.getenv('TESTING') is not None:
+                str_value = str(sim.data.sensordata[7])
+                str_value_time = str(sim.data.time)
+                f.write(str_value)
+                f.write(" ")
+                f.write(str_value_time)
+                f.write("\n")
                 return
 
     def get_robot_qpos(self, sim):
