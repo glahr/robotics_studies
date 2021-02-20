@@ -121,23 +121,23 @@ if __name__ == '__main__':
     k = 0
 
 
-    # ctrl.K[0, 0] = 2
-    # ctrl.B[0, 0] = 2
+    # ctrl.K[0, 0] = 10
+    # ctrl.B[0, 0] = 10
     #
-    # ctrl.K[1, 1] = 2
-    # ctrl.B[1, 1] = 2
+    # ctrl.K[1, 1] = 10
+    # ctrl.B[1, 1] = 10
     #
-    # ctrl.K[2, 2] = 2
-    # ctrl.B[2, 2] = 2
+    # ctrl.K[2, 2] = 12
+    # ctrl.B[2, 2] = 12
 
-    ctrl.K[3, 3] = 2.5
-    ctrl.B[3, 3] = 2.5
+    ctrl.K[3, 3] = 3.2
+    ctrl.B[3, 3] = 3.2
 
     ctrl.K[4, 4] = 6
     ctrl.B[4, 4] = 6
 
-    # ctrl.K[5, 5] = 2
-    # ctrl.B[5, 5] = 2
+    ctrl.K[5, 5] = 4
+    ctrl.B[5, 5] = 4
 
     '''
     Alguns pontos:
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     Obs: recomendo vc rever a posição xyz dos corpos flexíveis, eles estão fora de centro e isso impacta em como o
     controlador de impedância se comporta.
     '''
-    xd[1] += -0.0304
+    xd[1] += -0.021
     ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
     force = np.sqrt(np.power(ctrl.get_ft_data(sim)[0], 2) + np.power(ctrl.get_ft_data(sim)[1], 2)
                     + np.power(ctrl.get_ft_data(sim)[2], 2))

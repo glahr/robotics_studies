@@ -1,10 +1,10 @@
 <mujoco>
     <body name="first.second.first" pos="0 0 0">
-                    <composite prefix="black" type="box" count="4 4 4" spacing="0.03">
+                    <composite prefix="black" type="box" count="4 4 4" spacing="0.04">
         <!--                <skin texcoord="true" material="matsponge" rgba=".7 .7 .7 1"/>-->
-                        <joint kind="main" damping="10" stiffness="150" solreffix="-0.05 -1"/>
-                        <tendon kind="main" damping="10" stiffness="150" solreffix="-0.05 -1"/>
-                        <geom type="capsule" size=".015 0.03" rgba="0 0 0 1"/>
+                        <joint kind="main" damping="0.005" stiffness="5" solreffix="-0.05 -1"/>
+                        <tendon kind="main" damping="0.005" stiffness="5" solreffix="-0.05 -1"/>
+                        <geom type="capsule" size=".015 0.03" rgba="0 0 0 1" friction="0 0.005 0.2"/>
                     </composite>
     </body>
 </mujoco>
