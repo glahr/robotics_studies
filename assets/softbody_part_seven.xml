@@ -5,7 +5,6 @@
                         <joint kind="main" damping="10" stiffness="306" solreffix="-0.05 -1"/>
                         <tendon kind="main" damping="10" stiffness="306" solreffix="-0.05 -1"/>
                         <geom type="capsule" size=".015 0.03" rgba=".8 .2 .1 1"/>
-                        <site size="2" rgba="0 0 0 1"/>
                     </composite>
     </body>
 </mujoco>

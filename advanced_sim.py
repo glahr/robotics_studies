@@ -130,11 +130,11 @@ if __name__ == '__main__':
     # ctrl.K[2, 2] = 2
     # ctrl.B[2, 2] = 2
 
-    # ctrl.K[3, 3] = 2
-    # ctrl.B[3, 3] = 2
+    ctrl.K[3, 3] = 2.5
+    ctrl.B[3, 3] = 2.5
 
-    ctrl.K[4, 4] = 3
-    ctrl.B[4, 4] = 3
+    ctrl.K[4, 4] = 6
+    ctrl.B[4, 4] = 6
 
     # ctrl.K[5, 5] = 2
     # ctrl.B[5, 5] = 2
