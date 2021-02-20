@@ -9,7 +9,7 @@
     
     <geom class="visual" type="cylinder" pos="0 0 0.07789" size="0.006725 0.03113"/>
     <geom name="peg_tip_geom" class="collision" type="cylinder" pos="0 0 0.07789" size="0.006725 0.03113"
-          friction="0.3 0.005 0.0001"/>
+          friction="1.2 0.005 0.0001"/>
 
     <geom class="visual" type="cylinder" fromto="0 0 0.10602 0 0 0.10902" size="0.02"/>
     <geom name="peg_tip_geom_end" class="collision" type="cylinder" fromto="0 0 0.10602 0 0 0.10902" size="0.02"
