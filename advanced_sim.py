@@ -160,7 +160,7 @@ if __name__ == '__main__':
     Obs: recomendo vc rever a posição xyz dos corpos flexíveis, eles estão fora de centro e isso impacta em como o
     controlador de impedância se comporta.
     '''
-    xd[1] += -0.0225
+    xd[1] += -0.03168
     ctrl.move_to_point(xd=xd, xdmat=xdmat, sim=sim, viewer=viewer)
     force = np.sqrt(np.power(ctrl.get_ft_data(sim)[0], 2) + np.power(ctrl.get_ft_data(sim)[1], 2)
                     + np.power(ctrl.get_ft_data(sim)[2], 2))
