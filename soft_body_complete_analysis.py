@@ -1,5 +1,6 @@
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numpy as np
 from mujoco_py import load_model_from_path, MjSim, MjViewer
 from controllers_utils import CtrlUtils, CtrlType
@@ -121,13 +122,14 @@ class soft_body:
         f.close()
     
         title = "stiffness of" + " " + str(self.box)
+        plt.style.use('default')
         plt.plot(time, displacement, 'b', linewidth=2.0)
         # plt.setp(color='b', linewidth=2.0)
         plt.xlabel('time of iteration')
         plt.ylabel('displacement')
         plt.title(title)
 
-        plt.grid(True)
+        plt.grid(False)
         plt.savefig(title)
         plt.show()
 
